@@ -1,0 +1,200 @@
+---
+title: "MRT Data Prep"
+author: Casey Breen
+---
+
+## Summary
+
+In this notebook, I read in and prep BICS data for our model. 
+
+```{r}
+# source functions and library packages
+library(here)
+## helper functions and library packages
+source(here("code", "models", "mrp", "helpers.R"))
+
+TOPCODE_VALUE <- 30
+```
+
+## Find Egos
+
+```{r}
+## function to format raw bics data
+format_data <- function(df) {
+  df <- df %>%
+    filter(city == "National") %>%
+    mutate(
+      num_cc_topcoded = case_when(
+        num_cc > TOPCODE_VALUE ~ TOPCODE_VALUE,
+        TRUE ~ num_cc
+      ),
+      num_cc_nonhh_topcoded = case_when(
+        num_cc_nonhh > TOPCODE_VALUE ~ TOPCODE_VALUE,
+        TRUE ~ num_cc_nonhh
+      )
+    ) %>%
+    mutate(
+      # was this obs topcoded?
+      is_topcoded_cc = ifelse(num_cc_topcoded == TOPCODE_VALUE, 1, 0),
+      is_topcoded_cc_nonhh = ifelse(num_cc_nonhh_topcoded == TOPCODE_VALUE, 1, 0)
+    ) %>%
+    select(rid, num_cc_topcoded, is_topcoded_cc, agecat, gender, hhsize,
+      state = estimated_state, estimated_county_fips, w_race, w_hispan, StartDate
+    )
+}
+
+## read in data
+df1 <- readRDS(file = here("data", "lucid", "national_wave1.rds"))
+df2 <- readRDS(file = here("data", "lucid", "national_wave2.rds"))
+df3 <- readRDS(file = here("data", "lucid", "national_wave3.rds"))
+df4 <- readRDS(file = here("data", "lucid", "national_wave4.rds"))
+df5 <- readRDS(file = here("data", "lucid", "national_wave5.rds"))
+df6 <- readRDS(file = here("data", "lucid-pipeline", "national_wave6_unweighted.rds"))
+
+## reformat data
+df1 <- format_data(df1) %>% mutate(wave = 1)
+df2 <- format_data(df2) %>% mutate(wave = 2)
+df3 <- format_data(df3) %>% mutate(wave = 3)
+df4 <- format_data(df4) %>% mutate(wave = 4)
+df5 <- format_data(df5) %>% mutate(wave = 5)
+df6 <- format_data(df6) %>% mutate(wave = 6)
+
+## combine data
+df_formodel <- bind_rows(df1, df2, df3, df4, df5, df6) %>%
+  mutate(startdate = lubridate::as_datetime(StartDate))
+```
+
+
+## Add non-household alters 
+
+
+```{r}
+## read in alters
+df_alters1 <- readRDS(file = here("data", "lucid", "national_alters_wave1.rds"))
+df_alters2 <- readRDS(file = here("data", "lucid", "national_alters_wave2.rds"))
+df_alters3 <- readRDS(file = here("data", "lucid", "national_alters_wave3.rds"))
+df_alters4 <- readRDS(file = here("data", "lucid", "national_alters_wave4.rds"))
+df_alters5 <- readRDS(file = here("data", "lucid", "national_alters_wave5.rds"))
+df_alters6 <- readRDS(file = here("data", "lucid-pipeline", "national_alters_wave6_unweighted.rds"))
+
+
+## combine alter data
+df_alters <- bind_rows(df_alters1, df_alters2, df_alters3, df_alters4, df_alters5, df_alters6)
+
+## format alter data as wide
+df_alters_age_cat <- df_alters %>%
+  filter(hh_alter == "FALSE") %>%
+  group_by(rid, alter_agecat) %>%
+  summarize(n = sum(alter_weight)) %>%
+  pivot_wider(names_from = alter_agecat, values_from = n, names_prefix = "alter_age_") %>%
+  ungroup() %>%
+  mutate_all(~ (replace_na(., 0))) %>%
+  rename(
+    "alter_age_0_18" = "alter_age_[0,18)",
+    "alter_age_18_25" = "alter_age_[18,25)",
+    "alter_age_25_35" = "alter_age_[25,35)",
+    "alter_age_35_45" = "alter_age_[35,45)",
+    "alter_age_45_55" = "alter_age_[45,55)",
+    "alter_age_55_65" = "alter_age_[55,65)",
+    "alter_age_65_100" = "alter_age_[65,100]",
+  )
+
+## join dataset and replace NA's with 0
+df_formodel <- df_formodel %>%
+  left_join(df_alters_age_cat, by = "rid") %>%
+  mutate_at(vars(starts_with("alter")), ~ replace_na(., 0))
+```
+
+## Add household alters 
+
+```{r}
+## format alter data as wide
+df_alters_age_cat_hh <- df_alters %>%
+  filter(hh_alter == "TRUE") %>%
+  group_by(rid, alter_agecat) %>%
+  summarize(n = sum(alter_weight)) %>%
+  pivot_wider(names_from = alter_agecat, values_from = n, names_prefix = "alter_age_") %>%
+  ungroup() %>%
+  mutate_all(~(replace_na(., 0))) %>%
+  rename(
+    "alter_age_0_18_hh" = "alter_age_[0,18)",
+    "alter_age_18_25_hh" = "alter_age_[18,25)",
+    "alter_age_25_35_hh" = "alter_age_[25,35)",
+    "alter_age_35_45_hh" = "alter_age_[35,45)",
+    "alter_age_45_55_hh" = "alter_age_[45,55)",
+    "alter_age_55_65_hh" = "alter_age_[55,65)",
+    "alter_age_65_100_hh" = "alter_age_[65,100]",
+  )
+
+## join dataset and replace NA's with 0
+df_formodel <- df_formodel %>%
+  left_join(df_alters_age_cat_hh, by = "rid") %>%
+  mutate_at(vars(starts_with("alter")), ~ replace_na(., 0))
+```
+
+## Format File
+
+```{r}
+## top code hhsize
+df_formodel <- df_formodel %>%
+  mutate(hhsize = case_when(
+    hhsize == 1 ~ "1",
+    hhsize == 2 ~ "2",
+    hhsize == 3 ~ "3",
+    hhsize == 4 ~ "4",
+    hhsize == 5 ~ "5",
+    hhsize >= 6 ~ "6+"
+  ))
+
+## round number of alters by randomly sampling
+round_alters <- function(x) {
+  x <- floor(x) + as.numeric(x - floor(x) > runif(n = length(x), 0, 1))
+  return(x)
+}
+
+## recode race variable and create total contact variable
+df_formodel <- df_formodel %>%
+  mutate(race = case_when(
+    w_race == "White" & w_hispan != "Hispanic" | is.na(w_hispan) ~ "White",
+    w_race == "Black" & w_hispan != "Hispanic" | is.na(w_hispan) ~ "Black",
+    w_race == "Other race" & w_hispan != "Hispanic" | is.na(w_hispan) ~ "Other",
+    w_hispan == "Hispanic" ~ "Hispanic",
+  )) %>%
+  mutate(
+    total_alter_age_0_18 = alter_age_0_18 + alter_age_0_18_hh,
+    total_alter_age_18_25 = alter_age_18_25 + alter_age_18_25_hh,
+    total_alter_age_25_35 = alter_age_25_35 + alter_age_25_35_hh,
+    total_alter_age_35_45 = alter_age_35_45 + alter_age_35_45_hh,
+    total_alter_age_45_55 = alter_age_45_55 + alter_age_45_55_hh,
+    total_alter_age_55_65 = alter_age_55_65 + alter_age_55_65_hh,
+    total_alter_age_65_100 = alter_age_65_100 + alter_age_65_100_hh
+  )
+
+## round alters
+## formally, this is 'stochastic' rounding
+df_formodel <- df_formodel %>%
+  mutate(across(c(starts_with("alter")), round_alters))
+
+## create standardized day beginning at 1
+df_formodel <- df_formodel %>%
+  mutate(day_std = as.numeric(as_date(startdate) - lubridate::as_date("2020-04-11") + 1))
+
+## code weekday variable
+df_formodel <- df_formodel %>%
+  mutate(weekday = as.numeric(is_weekday(lubridate::as_date(startdate) - 1))) %>%
+  mutate(month = floor_date(startdate, "month"))
+
+## add on google mobility data 
+google_pca_data <- read_rds(file=here('data', 'mrp', 'input', 'google_mobility_pca.rds'))
+
+df_formodel <- df_formodel %>% 
+  mutate(date = as_date(startdate)) %>% 
+  left_join(google_pca_data %>% rename(state = state), by = c("state", "date"))
+```
+
+
+## Write out dataset
+
+```{r}
+write_rds(x = df_formodel, here("data", "mrp", "input", "df_formodel_waves1_6.rds"))
+```

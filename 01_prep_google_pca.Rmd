@@ -1,0 +1,107 @@
+---
+title: "Google PCA"
+---
+
+## Summary 
+
+This script takes raw mobility mobility reports from Google (https://www.google.com/covid19/mobility/) creates a rolling 3 week averagr of the first principal component of the 7 measures. Specifically, 
+
+— Read in Google mobility reports data 
+— Perform multiple imputation to simulate missing values (missing bc of privacy concerns)
+— Calculate principal component decomposition
+— Calculate 3-week rolling average for each day X state combination 
+
+## Library function + helper code  
+
+```{r}
+## library here package
+library(here)
+
+## Load helper functions and library all packages used for analysis
+source(here("code", "models", "mrp", "helpers.R"))
+```
+
+
+## Read in data 
+
+```{r, message = FALSE}
+## read raw google mobility data
+google_mobility_data_2020 <- read_csv(here("data", "mrp", "input", "2020_US_Region_Mobility_Report.csv"), col_types = cols())
+google_mobility_data_2021 <- read_csv(here("data", "mrp", "input", "2021_US_Region_Mobility_Report.csv"), col_types = cols())
+
+google_mobility_data <- bind_rows(google_mobility_data_2020, google_mobility_data_2021)
+
+## date first accessed (restrict to cases before Jul)
+google_mobility_data_state <- google_mobility_data %>%
+  filter(!is.na(sub_region_1) & is.na(sub_region_2)) %>%
+  filter(date <= as_date("2021-06-28")) %>%
+  rename(
+    google_grocery = grocery_and_pharmacy_percent_change_from_baseline,
+    google_parks = parks_percent_change_from_baseline,
+    google_transit = transit_stations_percent_change_from_baseline,
+    google_workplaces = workplaces_percent_change_from_baseline,
+    google_residential = residential_percent_change_from_baseline,
+    google_retail = retail_and_recreation_percent_change_from_baseline
+  ) %>%
+  select(
+    state = sub_region_1,
+    date,
+    starts_with("google")
+  )
+```
+
+
+## Impute missing values 
+
+```{r}
+## Some missing data for (1) parks and (2) transit
+google_mobility_data_state %>%
+  select(starts_with("google")) %>%
+  summarise_all(~(sum(is.na(.))))
+
+## impute values using mice package
+tempData <- suppressWarnings(mice(data = google_mobility_data_state, m = 1, maxit = 50, meth = "pmm", seed = 500, print = F))
+
+google_mobility_data_state_imputed <- complete(tempData, 1)
+```
+
+
+## Principal Component Decomposition
+
+```{r}
+## select mobility indicators
+pca_data <- google_mobility_data_state_imputed %>%
+  select(google_grocery, google_parks, google_transit, google_workplaces, google_residential, google_retail)
+
+## principal components
+res.pca <- prcomp(pca_data, scale = TRUE)
+
+## take
+individual_pca <- as.data.frame(res.pca$x)
+
+## add pca back onto code
+google_mobility_data_pca <- google_mobility_data_state_imputed %>%
+  bind_cols(individual_pca)
+
+## calculate 3 week rolling average of pc1
+google_mobility_data_pca <- google_mobility_data_pca %>%
+  group_by(state) %>%
+  mutate(rolling_pca_3wks = zoo::rollmean(x = PC1, 21, fill = NA, align = "center"))
+```
+
+
+## Format and save mobility data 
+
+```{r}
+## switch to state abbreviations
+google_mobility_data_pca <- google_mobility_data_pca %>%
+  mutate(estimated_state = state.abb[match(state, state.name)]) %>%
+  mutate(state = case_when(
+    state == "District of Columbia" ~ "DC",
+    TRUE ~ estimated_state
+  ))
+
+
+## write out pca file
+write_rds(google_mobility_data_pca, file = here("data", "mrp", "input", "google_mobility_pca.rds"))
+```

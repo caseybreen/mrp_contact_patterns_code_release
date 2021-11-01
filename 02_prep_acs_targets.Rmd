@@ -1,0 +1,130 @@
+---
+title: "ACS County Targets"
+author: Casey Breen
+---
+
+Summary: This notebook contains code to construct reference data for multilevel with post-stratification (MRP). We use the 5-year 2018 ACS to create our post-stratification targets. 
+
+
+## Library function + helper code
+
+```{r}
+## library here package
+library(here)
+
+## Load helper functions and library all packages used for analysis
+source(here("code", "models", "mrp", "helpers.R"))
+```
+
+
+## Load data 
+
+Read in 5-yr ACS with IPUMSR package
+
+```{r}
+## read in ipums data
+acs18_5yr <- read_ipums_micro(ddi = here("data", "ACS", "acs_5yr2018", "usa_00032.xml"), verbose = F)
+
+## fips code
+fips <- readRDS(here("data", "mrp", "input", "fips.rds"))
+```
+
+## Format data 
+
+Recode the ACS variables to match BICS variables. Drop variables we won't use. 
+
+```{r}
+## Recode and prep variables
+acs18_5yr_recode <- acs18_5yr %>%
+  ## filter(AGE >= 18) %>%
+  janitor::clean_names() %>%
+  mutate(
+    educ = case_when(
+      educ %in% 0:5 ~ "Non-high school graduate",
+      educ == 6 ~ "High school graduate",
+      educ %in% 7:9 ~ "Some college",
+      educ %in% 10:11 ~ "College graduate"
+    ),
+    race = case_when(
+      raced == 100 & hispan == 0 ~ "White",
+      raced == 200 & hispan == 0 ~ "Black",
+      raced > 200 & hispan == 0 ~ "Other",
+      hispan > 0 ~ "Hispanic"
+    ),
+    hhsize = case_when(
+      numprec == 1 ~ "1",
+      numprec == 2 ~ "2",
+      numprec == 3 ~ "3",
+      numprec == 4 ~ "4",
+      numprec == 5 ~ "5",
+      numprec >= 6 ~ "6+"
+    ),
+    gender = case_when(
+      sex == 1 ~ "Male",
+      sex == 2 ~ "Female"
+    ),
+    agecat = cut(age,
+      # breaks = c(18, 25, 35, 45, 65, 100),
+      breaks = c(0, 18, 25, 35, 45, 55, 65, 100),
+      include.lowest = TRUE,
+      right = FALSE
+    ),
+    countyfip = str_pad(countyfip,
+      width = 3,
+      side = "left",
+      pad = "0"
+    ),
+    state_fips = str_pad(statefip,
+      width = 2,
+      side = "left",
+      pad = "0"
+    ),
+    county_fips = paste0(state_fips, countyfip)
+  ) %>%
+  left_join(fips, by = c("state_fips" = "state_code")) %>%
+  select(educ, race, hhsize, gender, agecat, county_fips, state, perwt) %>%
+  janitor::clean_names()
+```
+
+## Create post-stratification targets
+
+```{r}
+## state targets for post-stratification
+acs_state_reference <- acs18_5yr_recode %>%
+  group_by(state, agecat, gender, hhsize, race) %>%
+  summarize(count = sum(perwt)) %>%
+  ungroup() %>%
+  group_by(agecat, state) %>%
+  mutate(prop = count / sum(count)) %>%
+  ungroup()
+
+## state targets for symmetry
+acs_state_symmetry <- acs18_5yr_recode %>%
+  group_by(state, agecat) %>%
+  summarize(count = sum(perwt)) %>%
+  ungroup() %>%
+  group_by(state) %>%
+  mutate(prop = count / sum(count)) %>%
+  ungroup()
+
+## national targets for symmetry
+acs_national_symmetry <- acs18_5yr_recode %>%
+  group_by(agecat) %>%
+  summarize(count = sum(perwt)) %>%
+  ungroup() %>%
+  mutate(prop = count / sum(count)) %>%
+  ungroup()
+```
+
+## Write out targets
+
+```{r}
+## state level targets
+write_rds(acs_state_reference, here("data", "mrp", "input", "acs_state_reference.rds"))
+
+## state level symmetry
+write_rds(acs_state_symmetry, here("data", "mrp", "input", "acs_state_symmetry.rds"))
+
+## national level symmetry
+write_rds(acs_national_symmetry, here("data", "mrp", "input", "acs_national_symmetry.rds"))
+```

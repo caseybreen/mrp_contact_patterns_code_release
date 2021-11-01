@@ -1,0 +1,66 @@
+---
+title: "Fit MRT Models with Mobility Data"
+author: Casey Breen
+---
+
+## Summary
+
+In this notebook, I fit a model to estimate total number of non-household contacts. (I also fit a few alternative model specifications.)
+
+```{r}
+## library here package 
+library(here)
+## Load helper functions and library all packages used for analysis 
+source(here("code", "models", "mrp", "helpers.R"))
+```
+
+## read in data for model 
+
+```{r}
+## prepared for model  
+df_formodel <- read_rds(here('data', 'mrp', 'input', 'df_formodel_waves1_6.rds')) 
+
+## top code total number of reported contacts at 30 
+top_code <- function(x) {
+  x <- case_when(
+    x > 30 ~ 30,
+    TRUE ~ x
+  )
+}
+
+## topcode data.frame 
+df_formodel_topcode <- df_formodel %>%
+  mutate(across(c(starts_with("alter_age")), top_code))
+```
+
+Run main model non-hh model for paper 
+
+```{r}
+## mobility + monthly national cubic + state-level hierarchical cubic term 
+## Total execution time: 5346.0 seconds.
+final_mobility_model <- brm(
+  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    weekday + 
+    agecat:gender + 
+    rolling_pca_3wks + ## mobility data 
+    poly(day_std, 3) + ## national polynomial trend 
+    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode,
+  chains = 4,
+  cores = 16,
+  backend = "cmdstanr",
+  threads = threading(4),
+  #  control = list(adapt_delta = 0.9), 
+  iter = 4000)
+
+write_rds(final_mobility_model, file = here('data', 'mrp', 'models', 'nonhh_model.rds'))
+```
+
+
+

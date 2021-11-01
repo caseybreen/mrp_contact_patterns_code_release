@@ -1,0 +1,138 @@
+---
+title: "Calculate contact matrices and R0"
+---
+
+Summary: This notebook contains code to produce post-stratified estimates of social contact and calculate summary statistics for social contact.  
+
+Specifically, the this code will: 
+
+(1) Produce Post-stratified estimates 
+(2) Adjust matrices for symmetry
+(3) Estimate contact for youngest age group (not surveyed)
+(4) Calculate contact matrices and estimates of R0, eigenvalue ratio, and total contact 
+
+```{r}
+## library here package 
+library(here)
+## Load helper functions and library all packages used for analysis 
+source(here("code", "models", "mrp", "helpers.R"))
+
+## specify package options 
+options(dplyr.summarise.inform = FALSE)
+
+
+## read in reference data
+acs_state_reference <- readRDS(here("data", "mrp", "input", "acs_state_reference.rds")) %>% 
+  filter(agecat != "[0,18)") %>% 
+  droplevels() %>% 
+  select(hhsize, state, agecat, gender, race, prop, count) %>% 
+  ungroup()
+
+## read in acs state proportions 
+acs_state_symmetry <- readRDS(here("data", "mrp", "input", "acs_state_symmetry.rds")) %>% 
+  group_by(state) %>% 
+  mutate(prop = count/sum(count)) %>% 
+  ungroup() %>% 
+  mutate(ego_age = agecat)
+
+## national level symmetry
+acs_national_symmetry <- readRDS(here("data", "mrp", "input", "acs_national_symmetry.rds")) 
+
+google_pca_data <- read_rds(file=here('data', 'mrp', 'input', 'google_mobility_pca.rds')) %>% 
+  select(date, state = state, rolling_pca_3wks)
+
+## Non-Household Model
+nonhh_model <- read_rds(file = here('data', 'mrp', 'models', 'nonhh_model.rds'))
+
+## Household Model 
+hh_model <- read_rds(file = here('data', 'mrp', 'models', 'hh_model.rds'))
+```
+
+
+Create Predictions 
+
+```{r}
+make_predictions <- function(day, nonhh_model = nonhh_model, hh_model = hh_model, draws = 10){
+
+  ## read in acs data and format 
+  acs_state_reference <- acs_state_reference %>% 
+    mutate(hhsize_numeric = as.numeric(substring(hhsize, 1, 1))) %>% 
+    mutate(day_std = day) %>% 
+    mutate(date = as_date("2020-04-11") + day - 1) %>% 
+    mutate(weekday = as.numeric(is_weekday(date))) %>% 
+    left_join(google_pca_data, by = c("date", "state"))
+  
+  tic("predicted draws")
+  
+  ## Add predicted draws 
+  predicted_draws <- acs_state_reference %>%
+    add_predicted_draws(object = nonhh_model, ndraws = draws, allow_new_levels = T) %>% 
+    mutate(numcc_predict = .prediction) %>% 
+    ungroup() %>% 
+    select(state, agecat, gender, hhsize, race, prop, weekday, count, day_std, .draw, numcc_predict, .category)
+
+  ## Add predicted household draws
+  predicted_draws_hh <- acs_state_reference %>%
+    filter(hhsize != "1") %>% 
+    add_predicted_draws(object = hh_model, ndraws = draws, allow_new_levels = T) %>% 
+    mutate(numcc_predict_hh = .prediction) %>% 
+    ungroup() %>% 
+    select(state, agecat, gender, hhsize, race, prop, .draw, numcc_predict_hh, .category) %>% 
+    mutate(.category = str_sub(.category, 1, str_length(.category)-2))
+
+  toc()
+  
+  ## combine predicted draws 
+  predicted_draws_total = predicted_draws %>% 
+    left_join(predicted_draws_hh, by = c("state", "agecat", "gender", "hhsize", "race", ".draw", ".category")) %>% 
+    mutate(numcc_predict_total = case_when(
+      hhsize == "1" ~ numcc_predict,
+      TRUE ~ numcc_predict + numcc_predict_hh
+    ))
+  
+  ## summarize post-stratify estimates er
+  state_level_predictions <- predicted_draws_total %>%
+    group_by(state, .draw, .category, agecat) %>% 
+    summarise(mean = sum(count/sum(count) * numcc_predict_total), warnings = F) %>% 
+    mutate(day_std = day) %>%  
+    ungroup()
+  
+  tic("enforce reciprocity")
+  ## enforce reciprocity 
+  state_level_predictions <- enforce_reciprocity(df = state_level_predictions)
+  toc()
+
+  tic("eigenvalue ratio")
+  ## calculate eigenvalues, R0, q-index 
+  eigenvalue_df <- eigenvalue_ratio(state_level_predictions)
+  toc()
+  
+  ## calculate contact intervals 
+  contact_df <- average_contact(state_level_predictions)
+
+  ## add to list  
+  newList <- list(eigenvalue_df, contact_df)
+  
+  ## write out and save predictions 
+  write_rds(x = newList, file = here('data', 'mrp', 'predictions_100', paste0('prediction_day', day, ".rds")))
+
+  ## print out day to keep track 
+  cat(day)
+
+  
+  ## return list with (1) summary statistics of contact (eigenvalue ratio, R0, q-index) 
+  ## and (2) contact matrices (with credible intervals)
+  return(newList)
+  }
+
+## days for predictions 
+## may, Aug, Jan 1 
+days <- c(1:411)
+# 
+# ## create progress bar  
+# pb <- progress_bar$new(total = length(days))
+
+tic("total prediction time")
+state_level_predictions_test <- map(days, ~make_predictions(.x, nonhh_model = nonhh_model, hh_model = hh_model, draws = 100))
+toc()
+```
