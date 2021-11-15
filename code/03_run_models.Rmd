@@ -54,9 +54,6 @@ nonhh_model <- brm(
   data = df_formodel_topcode,
   chains = 4,
   cores = 16,
-  # backend = "cmdstanr",
-  # threads = threading(4),
-  #  control = list(adapt_delta = 0.9), 
   iter = 4000)
 
 write_rds(nonhh_model, file = here('data', 'models', 'nonhh_model.rds'))

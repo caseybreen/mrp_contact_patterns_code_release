@@ -6,16 +6,19 @@ title: "Run all Scripts"
 
 This script runs all code to replicate figures and tables for the paper "Estimating Subnational Contact Patterns using Multilevel Regression with Poststratification." 
 
-The scripts are numbered in the order they should be run. To increase precision, update the number of draws 
+The scripts are numbered in the order they should be run.
 
 ```{r}
+## library packages 
 library(here)
 source(here("code", "helpers.R"))
 
+## list of rmd files 
 rmd_files <- list.files(path = file.path(here("code//")), pattern=".Rmd")   
 
 rmd_files <- rmd_files[!rmd_files %in% "00_run_all.Rmd"]
 
+## set seed for reproducibility 
 set.seed(1)
 
 for (cur_file in rmd_files[1:4]) {
@@ -29,7 +32,4 @@ for (cur_file in rmd_files[1:4]) {
 ```
 
 
-```{r}
-source_rmd(rmd_files[1])
-```
 

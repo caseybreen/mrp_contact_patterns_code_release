@@ -7,8 +7,6 @@ author: Casey Breen
 
 This notebook contains code to produce all figures and tables for "Estimating Subnational Contact Patterns using Multilevel Regression with Poststratification." 
 
-
-
 ```{r}
 ## library package
 library(here)
@@ -652,7 +650,18 @@ ggsave(plot = reproductive_values, height = 7, width = 17, file = here("figures"
 ```
 
 
-## Tables and numbers 
+## Tables and numbers reported in text 
+
+Table 1: number of interviews conducted per month 
+
+```{r}
+df_formodel %>% 
+  count(month)
+```
+
+Table 2: model selection (run `06_model_selection_loo.Rmd`)
+
+Numbers reported in text: Iowa vs. Washington change in contact intensity over time (page 14)
 
 ```{r}
 ## monthly estimates eigenvalue 
@@ -663,3 +672,5 @@ monthly_estimates_eigenvalue %>%
   pivot_wider(names_from = state, values_from = eigenvalue_ratio) %>% 
   mutate(diff = ((IA / WA)-1)*100)
 ```
+
+

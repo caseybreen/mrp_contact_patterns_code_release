@@ -9,6 +9,8 @@ title: "Alternative Models"
 library(here)
 ## Load helper functions and library all packages used for analysis 
 source(here("code", "helpers.R"))
+
+set.seed(1) 
 ```
 
 ## read in data for model 
@@ -42,13 +44,11 @@ mobility_model1 <- brm(
     hhsize + 
     race + 
     weekday + 
-    poly(day_std, 3), 
+   (poly(day_std, 3) | state),  ## state level pooled polynomial trend 
   family = 'negbinomial',
   inits = 0,
   data = df_formodel_topcode,
   chains = 4,
-  backend = "cmdstanr",
-  threads = threading(4),
   cores = 16,
   iter = 4000)
 
@@ -68,8 +68,6 @@ mobility_model2 <- brm(
   inits = 0,
   data = df_formodel_topcode,
   chains = 4,
-  backend = "cmdstanr",
-  threads = threading(4),
   cores = 16,
   iter = 4000)
 
@@ -89,8 +87,6 @@ mobility_model3 <- brm(
   data = df_formodel_topcode,
   chains = 4,
   cores = 16,
-  backend = "cmdstanr",
-  threads = threading(4),
 #  control = list(adapt_delta = 0.9), 
   iter = 4000)
 ```
@@ -105,22 +101,24 @@ Post-stratification code is in the `03_poststratification_daily.Rmd` Notebook.
 
 ```{r}
 mobility_model1_loo <- loo(mobility_model1,
-                           nsamples = 1000,
+                           ndraws = 1000,
                            draws = NULL,
                            cores = getOption("mc.cores", 1))
 
 mobility_model2_loo <- loo(mobility_model2,
-                           nsamples = 1000,
+                           ndraws = 1000,
                            draws = NULL,
                            cores = getOption("mc.cores", 1))
 
 mobility_model3_loo <- loo(mobility_model3,
-                           nsamples = 1000,
+                           ndraws = 1000,
                            draws = NULL,
-                           cores = getOption("mc.cores", 1))
+                           cores = getOption("mc.cores", 1),
+                           moment_match = T)
 ```
 
 
+Appendix Table 2 
 ```{r}
 loo_compare(mobility_model1_loo, mobility_model2_loo, mobility_model3_loo)
 ```
