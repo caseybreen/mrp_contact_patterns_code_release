@@ -1,0 +1,665 @@
+---
+title: "Create Figures from our estimates"
+author: Casey Breen
+---
+
+## Summary
+
+This notebook contains code to produce all figures and tables for "Estimating Subnational Contact Patterns using Multilevel Regression with Poststratification." 
+
+
+
+```{r}
+## library package
+library(here)
+
+## helper functions and library packages
+source(here("code", "helpers.R"))
+```
+
+## Read in data 
+
+```{r}
+## set working directory to read in draws
+predictions <- list.files(path = here("data", "predictions"), pattern = ".rds", full.names = T) %>%
+  map_dfr(read_rds)
+
+## contact matrices predictions
+contact_matrices_predictions <- predictions %>%
+  bind_rows() %>%
+  ungroup() %>%
+  filter(is.na(.draw)) %>%
+  mutate(date = as_date("2020-04-11") + day_std - 1) %>%
+  mutate(month = floor_date(date, "months"))
+
+## summary statistics predictions
+summary_statistics <- predictions %>%
+  bind_rows() %>%
+  ungroup() %>%
+  filter(!is.na(.draw)) %>%
+  mutate(date = as_date("2020-04-11") + day_std - 1) %>%
+  mutate(month = floor_date(date, "months")) %>%
+  mutate(state = state)
+
+## read in raw bics data 
+df_formodel <- read_rds(here("data", "input", "bics_data_waves_1-6.rds"))
+
+## top code total number of reported contacts at 30
+top_code <- function(x) {
+  x <- case_when(
+    x > 30 ~ 30,
+    TRUE ~ x
+  )
+}
+
+## topcode data.frame
+df_formodel_topcode <- df_formodel %>%
+  mutate(across(c(starts_with("alter_age")), top_code)) %>%
+  mutate(month = floor_date(as_date(startdate), "month"))
+
+## read in acs data
+acs_state_symmetry <- readRDS(here("data", "intermediate", "acs_state_symmetry.rds")) %>%
+  group_by(state) %>%
+  mutate(prop = count / sum(count)) %>%
+  ungroup() %>%
+  mutate(ego_age = agecat)
+
+## q index 
+google_pca_data <- read_rds(file = here("data", "intermediate", "google_mobility_pca.rds"))
+
+```
+
+## calcuate R_0 
+
+```{r}
+## calculate R0
+baseline_R0 <- 2.54
+
+## baseline eigenvalue
+polymod_country <- "United Kingdom"
+polymod_age_limits <- c(0, 18, 25, 35, 45, 55, 65)
+
+## get polynmod data
+## supress warnings so it doesn't clog up pipeline
+polymod_mat <- suppressMessages(suppressWarnings(getPolymodMatrixNoSchool(
+  polymod_country = polymod_country,
+  polymod_age_limits = polymod_age_limits
+)))
+
+prepandemic_eigenvalue <- eigen(polymod_mat)$values[1]
+
+## calculate R0
+summary_statistics <- summary_statistics %>%
+  mutate(R0 = leading_eigenvalue / prepandemic_eigenvalue * baseline_R0) %>%
+  mutate(eigenvalue_ratio = leading_eigenvalue / prepandemic_eigenvalue)
+```
+
+
+## Contact Matrices Plot
+
+Plot one contact matrix for each month 
+
+```{r}
+months <- contact_matrices_predictions %>%
+  mutate(month = lubridate::format_ISO8601(month, precision = "ym")) %>%
+  distinct(month) %>%
+  pull()
+
+for (month_i in months) {
+
+  ## Example states: California, April 2020
+  state_level_mixing_matrices_symmetrical <- contact_matrices_predictions %>%
+    mutate(month = lubridate::format_ISO8601(month, precision = "ym")) %>%
+    filter(month == month_i) %>%
+    group_by(month, state, .ego_age, .alter_age) %>%
+    summarize(
+      sym_avg_per_ego = mean(contacts),
+      lower = mean(lower),
+      upper = mean(upper)
+    ) %>%
+    ggplot() +
+    geom_tile(aes(x = .ego_age, y = .alter_age, fill = sym_avg_per_ego)) +
+    # facet_grid(ego_sex ~ alter_sex) +
+    coord_equal() +
+    # viridis::scale_fill_viridis(name = str_wrap("Contacts per respondent", width = 10)) +
+    scale_fill_gradientn(
+      colors = viridis::viridis_pal()(9),
+      limits = c(0, 4.41),
+      na.value = "#FDE725FF",
+      name = str_wrap("Contacts per respondent", width = 10)
+    ) +
+    facet_geo(~state) +
+    theme_minimal(base_size = 10) +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = .3),
+      axis.title = element_text(size = 15),
+      plot.title = element_text(size = 22)
+    ) +
+    labs(
+      title = glue("State-Level Contact Matrices ({month_i})"),
+      x = "Ego age",
+      y = "Alter age"
+    )
+
+  ggsave(plot = state_level_mixing_matrices_symmetrical, height = 10, width = 13, file = here("figures", glue("state_level_mixing_matrices_symmetrical{month_i}.png")))
+}
+```
+
+## Compare predictions to actual survey results 
+
+Compare our predictions to our actual survey results 
+
+```{r}
+## California raw estimates 
+state_raw_estimates_ca <- df_formodel_topcode %>%
+  filter(month <= as_date("2020-4-01")) %>%
+  filter(state == "CA") %>%
+  group_by(agecat, month) %>%
+  summarise(across(starts_with("total_alter"), ~ mean(.x, na.rm = TRUE))) %>%
+  pivot_longer(-c(agecat, month), names_to = "alter_age") %>%
+  rename(mean = value) %>%
+  mutate(alter_age = case_when(
+    alter_age == "total_alter_age_0_18" ~ "[0,18)",
+    alter_age == "total_alter_age_18_25" ~ "[18,25)",
+    alter_age == "total_alter_age_25_35" ~ "[25,35)",
+    alter_age == "total_alter_age_35_45" ~ "[35,45)",
+    alter_age == "total_alter_age_45_55" ~ "[45,55)",
+    alter_age == "total_alter_age_55_65" ~ "[55,65)",
+    alter_age == "total_alter_age_65_100" ~ "[65,100]"
+  )) %>%
+  mutate(agecat = paste0("Ego Age: ", agecat)) %>%
+  rename(.ego_age = agecat, .alter_age = alter_age)
+
+## Alabama Raw Estimates 
+state_raw_estimates_al <- df_formodel_topcode %>%
+  filter(month <= as_date("2020-4-01")) %>%
+  filter(state == "AL") %>%
+  group_by(agecat, month) %>%
+  summarise(across(starts_with("total_alter"), ~ mean(.x, na.rm = TRUE))) %>%
+  pivot_longer(-c(agecat, month), names_to = "alter_age") %>%
+  rename(mean = value) %>%
+  mutate(alter_age = case_when(
+    alter_age == "total_alter_age_0_18" ~ "[0,18)",
+    alter_age == "total_alter_age_18_25" ~ "[18,25)",
+    alter_age == "total_alter_age_25_35" ~ "[25,35)",
+    alter_age == "total_alter_age_35_45" ~ "[35,45)",
+    alter_age == "total_alter_age_45_55" ~ "[45,55)",
+    alter_age == "total_alter_age_55_65" ~ "[55,65)",
+    alter_age == "total_alter_age_65_100" ~ "[65,100]"
+  )) %>%
+  mutate(agecat = paste0("Ego Age: ", agecat)) %>%
+  rename(.ego_age = agecat, .alter_age = alter_age)
+
+ca_mrp <- contact_matrices_predictions %>%
+  group_by(month, state, .ego_age, .alter_age) %>%
+  summarize(
+    sym_avg_per_ego = mean(contacts),
+    lower = mean(lower),
+    upper = mean(upper)
+  ) %>%
+  filter(state == "CA" & month <= as_date("2020-4-01")) %>%
+  mutate(.ego_age = paste0("Ego Age: ", .ego_age)) %>%
+  ggplot() +
+  geom_pointrange(aes(
+    x = forcats::fct_rev(.alter_age),
+    ymin = lower,
+    y = sym_avg_per_ego,
+    ymax = upper,
+    color = "MRP Estimate"
+  )) +
+  theme_half_open() +
+  labs(
+    x = "Alter Age",
+    y = "",
+    title = paste0("California Predictions (April 2020, N = 95)")
+  ) +
+  geom_point(
+    data = state_raw_estimates_ca %>% filter(month <= as_date("2020-4-01")),
+    aes(
+      x = forcats::fct_rev(.alter_age),
+      y = mean,
+      color = "BICS Data (Unadjusted)"
+    ),
+    size = 2.5
+  ) +
+  scale_color_manual(name = "", values = c("MRP Estimate" = "black", "BICS Data (Unadjusted)" = "red3")) +
+  theme(legend.position = "none") +
+  facet_grid(vars(month), vars(.ego_age)) +
+  panel_border() +
+  background_grid() +
+  coord_flip() +
+  ylim(0, 4)
+
+
+## alabama plot 
+al_mrp <- contact_matrices_predictions %>%
+  group_by(month, state, .ego_age, .alter_age) %>%
+  summarize(
+    sym_avg_per_ego = mean(contacts),
+    lower = mean(lower),
+    upper = mean(upper)
+  ) %>%
+  ungroup() %>%
+  filter(state == "AL" & month <= as_date("2020-4-01")) %>%
+  mutate(.ego_age = paste0("Ego Age: ", .ego_age)) %>%
+  ggplot() +
+  geom_pointrange(aes(
+    x = forcats::fct_rev(.alter_age),
+    ymin = lower,
+    y = sym_avg_per_ego,
+    ymax = upper,
+    color = "MRP Estimate"
+  )) +
+  theme_half_open() +
+  labs(
+    x = "Alter Age",
+    y = "",
+    title = paste0("Alabama Predictions (April 2020, N = 9)")
+  ) +
+  geom_point(
+    data = state_raw_estimates_al %>% filter(month <= as_date("2020-4-01")),
+    aes(
+      x = forcats::fct_rev(.alter_age),
+      y = mean,
+      color = "BICS Data (Unadjusted)"
+    ),
+    size = 2.5
+  ) +
+  scale_color_manual(name = "", values = c("MRP Estimate" = "black", "BICS Data (Unadjusted)" = "red3")) +
+  theme(legend.position = "bottom") +
+  facet_grid(vars(month), vars(.ego_age)) +
+  panel_border() +
+  background_grid() +
+  coord_flip() +
+  ylim(0, 4)
+
+raw_vs_modeled_plot <- cowplot::plot_grid(ca_mrp, al_mrp, labels = "auto", nrow = 2)
+
+ggsave(plot = raw_vs_modeled_plot, height = 12, width = 14, file = here("figures", "raw_vs_modeled_plot.png"))
+```
+
+
+ 
+## Average Monthly Contacts 
+
+Plot total average monthly total contacts (household and non-household) at the state level over time.  
+
+```{r}
+total_contact_predictions <- contact_matrices_predictions %>%
+  mutate(ego_age = .ego_age) %>%
+  left_join(acs_state_symmetry, by = c("state", "ego_age")) %>%
+  group_by(state, date) %>%
+  summarize(
+    total_contact = sum(contacts * prop, na.rm = T),
+    lower = sum(lower * prop, na.rm = T),
+    upper = sum(upper * prop, na.rm = T)
+  ) %>%
+  ungroup() %>%
+  mutate(weekday = is_weekday(lubridate::as_date(date) - 1)) %>%
+  mutate(date = floor_date(as_date(date), "month")) %>%
+  group_by(state, date) %>%
+  summarize(
+    total_contact = mean(total_contact),
+    lower = mean(lower),
+    upper = mean(upper)
+  )
+
+total_contacts_plot <- total_contact_predictions %>%
+  ungroup() %>%
+  ggplot(aes(x = date, y = total_contact, ymin = lower, ymax = upper, group = 1)) + #
+  geom_ribbon(fill = "grey80") +
+  geom_point() +
+  geom_line() +
+  theme_cowplot() +
+  panel_border() +
+  background_grid() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  ggsci::scale_color_lancet() +
+  facet_geo(~state) +
+  labs(
+    x = "Date",
+    y = "Total Contact",
+    title = ""
+  ) +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
+  theme(panel.spacing.x = unit(10, "mm"))
+
+ggsave(plot = total_contacts_plot, height = 12, width = 18, file = here("figures", "total_contact_state_plot.png"))
+```
+
+## calculate eigenvalues 
+
+```{r}
+monthly_estimates_eigenvalue <- summary_statistics %>%
+  group_by(date, state) %>%
+  summarize(
+    lower = quantile(eigenvalue_ratio, .1),
+    upper = quantile(eigenvalue_ratio, .9),
+    eigenvalue_ratio = mean(eigenvalue_ratio)
+  ) %>%
+  group_by(month = lubridate::floor_date(date, "month"), state) %>%
+  summarize(
+    lower = mean(lower),
+    upper = mean(upper),
+    eigenvalue_ratio = mean(eigenvalue_ratio)
+  )
+
+eigenvalue_plot_ribbon_month <- monthly_estimates_eigenvalue %>%
+  ggplot(aes(x = month, y = eigenvalue_ratio, group = 1, ymin = lower, ymax = upper)) +
+  geom_ribbon(fill = "grey80") +
+  geom_point() +
+  geom_line() +
+  geom_hline(yintercept = 1, linetype = "dashed", col = "black") +
+  theme_cowplot() +
+  panel_border() +
+  background_grid() +
+  facet_geo(~state) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(
+    x = "Date",
+    y = "Eigenvalue Ratio",
+    title = ""
+  ) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
+  theme(panel.spacing.x = unit(10, "mm"))
+
+ggsave(plot = eigenvalue_plot_ribbon_month, height = 12, width = 18, file = here("figures", "eigenvalue_ratio_state_plot.png"))
+```
+
+## R0
+
+```{r}
+monthly_estimates_R0 <- summary_statistics %>%
+  group_by(date, state) %>%
+  summarize(
+    lower = quantile(R0, .1),
+    upper = quantile(R0, .9),
+    R0 = mean(R0)
+  ) %>%
+  group_by(month = lubridate::floor_date(date, "month"), state) %>%
+  summarize(
+    lower = mean(lower),
+    upper = mean(upper),
+    R0 = mean(R0)
+  )
+
+R0_plot_ribbon_month <- monthly_estimates_R0 %>%
+  ggplot(aes(x = month, y = R0, group = 1, ymin = lower, ymax = upper)) +
+  geom_ribbon(fill = "grey80") +
+  geom_point() +
+  geom_line() +
+  theme_cowplot() +
+  panel_border() +
+  background_grid() +
+  facet_geo(~state) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(
+    x = "Date",
+    y = "R0",
+    title = ""
+  ) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
+  theme(panel.spacing.x = unit(10, "mm"))
+
+ggsave(plot = R0_plot_ribbon_month, height = 12, width = 18, file = here("figures", "R0_state_plot.png"))
+```
+
+## Q index plot 
+
+Calculate q-index plots showing assortativity with respect to age. 
+
+```{r}
+## calculate q index 
+## q-index is absolute value of ratio of second eigenvector to first eigenvector
+q0_data <- summary_statistics %>%
+  group_by(date, state) %>%
+  summarize(
+    lower = quantile(R0, .1),
+    upper = quantile(R0, .9),
+    R0 = mean(abs(R0)),
+    leading_eigenvalue = mean(leading_eigenvalue),
+    lower_q0 = quantile(abs(q_index), .1),
+    upper_q0 = quantile(abs(q_index), .9),
+    q0 = mean(abs(q_index))
+  ) %>%
+  group_by(month = lubridate::floor_date(date, "month"), state) %>%
+  summarize(
+    lower = mean(lower),
+    upper = mean(upper),
+    R0 = mean(R0),
+    leading_eigenvalue = mean(leading_eigenvalue),
+    lower_q0 = quantile(abs(lower_q0), .1),
+    upper_q0 = quantile(abs(upper_q0), .9),
+    q0 = mean(q0)
+  )
+
+## plot how q index changed over time 
+q_index_over_time <- q0_data %>%
+  group_by(month) %>%
+  summarize(q_index = mean(q0)) %>%
+  ggplot(aes(x = month, y = q_index)) +
+  geom_point() +
+  theme_cowplot() +
+  labs(
+    title = "Q-index Over Time (State Average)",
+    y = "q-index"
+  )
+
+## plot association between q-index 
+q_index_association_R0 <- q0_data %>%
+  group_by(month) %>%
+  summarize(
+    q_index = mean(q0),
+    q_index_lower = mean(lower_q0),
+    q_index_upper = mean(upper_q0),
+    R0 = mean(R0)
+  ) %>%
+  ggplot(aes(x = q_index, y = R0)) +
+  geom_point() +
+  theme_cowplot() +
+  labs(
+    title = "Association between R0 and Q-index (State Average)",
+    y = "R0"
+  )
+
+q_index_plots <- cowplot::plot_grid(q_index_over_time, q_index_association_R0, labels = "auto")
+
+
+ggsave(plot = q_index_plots, height = 6, width = 12, file = here("figures", "q_index_plot.png"))
+```
+
+## CA mobility and predictions plot 
+
+```{r}
+eigenvalue_df <- summary_statistics %>%
+  mutate(eigenvalue_ratio = leading_eigenvalue / prepandemic_eigenvalue) %>%
+  group_by(state, day_std) %>%
+  summarize(
+    lower = quantile(eigenvalue_ratio, .1),
+    upper = quantile(eigenvalue_ratio, .9),
+    eigenvalue_ratio = mean(eigenvalue_ratio)
+  )
+
+ca_plot <- eigenvalue_df %>%
+  filter(state == "CA") %>%
+  mutate(date = as_date("2020-04-11") + day_std - 1) %>%
+  mutate(weekday = case_when(
+    as.numeric(is_weekday(date)) == 1 ~ "weekday",
+    TRUE ~ "weekend"
+  )) %>%
+  ggplot(aes(x = date, y = eigenvalue_ratio, group = 1, ymin = lower, ymax = upper)) +
+  geom_ribbon(fill = "grey80") +
+  geom_point(aes(color = weekday)) +
+  #  geom_hline(yintercept = 1, linetype = "dashed", col = "black") +
+  theme_cowplot() +
+  panel_border() +
+  background_grid() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  ggsci::scale_color_lancet() +
+  labs(
+    x = "Date",
+    y = "Eigenvalue Ratio",
+    title = "Daily Predictions"
+  ) +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y")
+
+
+pc1_plot <- google_pca_data %>%
+  mutate(holidays = case_when(
+    date == as_date("2020-09-07") ~ "Labor Day",
+    date == as_date("2020-11-26") ~ "Thanksgiving",
+    date == as_date("2020-12-25") ~ "Christmas Day",
+    date == as_date("2021-01-01") ~ "New Years Day",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(state == "CA" & date >= as_date("2020-04-11") & date <= as_date("2021-05-26")) %>%
+  group_by(month = as_date(date)) %>%
+  ggplot(aes(x = month, y = -PC1)) +
+  geom_point() +
+  # geom_line() +
+  theme_cowplot() +
+  panel_border() +
+  background_grid() +
+  gghighlight(!is.na(holidays), label_key = holidays) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(
+    x = "Date",
+    y = "PC1",
+    title = "Mobility PC1: Daily"
+  ) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
+  ylim(-8, 0.5)
+
+pc1_rolling_plot <- google_pca_data %>%
+  filter(state == "CA" & date >= as_date("2020-04-11") & date <= as_date("2021-05-26")) %>%
+  ggplot(aes(x = date, y = -rolling_pca_3wks)) +
+  geom_point() +
+  # geom_line() +
+  theme_cowplot() +
+  panel_border() +
+  background_grid() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(
+    x = "Date",
+    y = "PC1",
+    title = "Mobility PC1: Three-Week Rolling Average"
+  ) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
+  ylim(-8, 0.5)
+
+raw_reported_contact <- df_formodel_topcode %>%
+  mutate(state == "CA") %>%
+  group_by(month = lubridate::floor_date(as_date(startdate), "month")) %>%
+  summarise(raw_contact = mean(alter_age_0_18 + alter_age_18_25 + alter_age_25_35 + alter_age_35_45 +
+    alter_age_45_55 + alter_age_55_65 + alter_age_65_100)) %>%
+  ggplot(aes(x = month, y = raw_contact)) +
+  geom_point() +
+  geom_line() +
+  theme_cowplot() +
+  panel_border() +
+  ylim(0, 6) +
+  theme_cowplot() +
+  panel_border() +
+  background_grid() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(
+    x = "Date",
+    y = "Non-HH Contacts",
+    title = "Monthly Avg. Reported Contact (BICS; unadjusted)"
+  ) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y")
+
+
+## R0 ribbon CA
+R0_plot_ribbon_month_ca <- monthly_estimates_R0 %>%
+  filter(state == "CA") %>%
+  ggplot(aes(x = month, y = R0, group = 1, ymin = lower, ymax = upper)) +
+  geom_ribbon(fill = "grey80") +
+  geom_point() +
+  geom_line() +
+  theme_cowplot() +
+  panel_border() +
+  background_grid() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(
+    x = "Date",
+    y = "R0",
+    title = "Change in R0 Over Time"
+  ) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
+  theme(panel.spacing.x = unit(10, "mm"))
+
+## plot grid
+bottom_row <- plot_grid(pc1_plot, pc1_rolling_plot, labels = c("a", "b"))
+mid_row <- plot_grid(raw_reported_contact, R0_plot_ribbon_month_ca, labels = c("c", "d"))
+
+ca_plot <- cowplot::plot_grid(bottom_row, mid_row, ca_plot, labels = c("", "", "e"), ncol = 1)
+
+ggsave(plot = ca_plot, height = 18, width = 14, file = here("figures", "ca_plot.png"))
+```
+
+
+## Reproductive Values
+
+Calculate relative reproductive values. This is equivalent to the left eigenvector. 
+
+```{r}
+## select states and calculate standardized eigenvectors 
+left_eigenvector <- summary_statistics %>%
+  filter(state %in% c("CA", "NY", "TX")) %>%
+  select(state, day_std, .draw, left_eigenvector) %>%
+  unnest(left_eigenvector) %>%
+  group_by(state, day_std, .draw) %>%
+  mutate(left_eigenvector_standardized = abs(eigenvector / first(eigenvector))) %>%
+  ungroup()
+
+## calculate mean and 80% credible interval of relative reproductive values 
+example_state_left <- left_eigenvector %>%
+  mutate(date = as_date("2020-04-11") + day_std) %>%
+  mutate(month = lubridate::floor_date(date, "month")) %>%
+  filter(month %in% c(as_date(" 2020-04-01"), as_date("2021-1-01"), as_date("2021-5-01"))) %>%
+  group_by(state, agecat, month) %>%
+  summarize(
+    left_eigenvector_mean = mean(left_eigenvector_standardized),
+    lower = quantile(left_eigenvector_standardized, 0.1),
+    upper = quantile(left_eigenvector_standardized, 0.9)
+  ) 
+
+## plot reproductive numbers 
+reproductive_values <- example_state_left %>%
+  ggplot(aes(
+    x = agecat,
+    y = left_eigenvector_mean,
+    fill = state,
+    ymin = lower,
+    ymax = upper
+  )) +
+  geom_col(position = "dodge", width = .75, size = 3) +
+  geom_linerange(position = position_dodge(.75)) +
+  theme_cowplot() +
+  scale_fill_brewer(palette = "Blues") +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Age Group",
+    y = ""
+  ) +
+  facet_wrap(~ as_date(month))
+
+## save relative reproductive values plot 
+ggsave(plot = reproductive_values, height = 7, width = 17, file = here("figures", "reproductive_values_plot.png"))
+```
+
+
+## Tables and numbers 
+
+```{r}
+## monthly estimates eigenvalue 
+monthly_estimates_eigenvalue %>%
+  filter(state %in% c("IA", "WA")) %>%
+  filter(month %in% c(as_date("2021-05-01"), as_date("2020-04-01	"))) %>% 
+  select(month, state, eigenvalue_ratio) %>% 
+  pivot_wider(names_from = state, values_from = eigenvalue_ratio) %>% 
+  mutate(diff = ((IA / WA)-1)*100)
+```

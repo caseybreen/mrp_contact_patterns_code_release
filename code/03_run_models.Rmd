@@ -11,14 +11,14 @@ In this notebook, I fit a model to estimate total number of non-household contac
 ## library here package 
 library(here)
 ## Load helper functions and library all packages used for analysis 
-source(here("code", "models", "mrp", "helpers.R"))
+source(here("code", "helpers.R"))
 ```
 
 ## read in data for model 
 
 ```{r}
 ## prepared for model  
-df_formodel <- read_rds(here('data', 'mrp', 'input', 'df_formodel_waves1_6.rds')) 
+df_formodel <- read_rds(here('data', 'input', 'bics_data_waves_1-6.rds')) 
 
 ## top code total number of reported contacts at 30 
 top_code <- function(x) {
@@ -38,7 +38,7 @@ Run main model non-hh model for paper
 ```{r}
 ## mobility + monthly national cubic + state-level hierarchical cubic term 
 ## Total execution time: 5346.0 seconds.
-final_mobility_model <- brm(
+nonhh_model <- brm(
   formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
     agecat +
     gender +
@@ -54,13 +54,42 @@ final_mobility_model <- brm(
   data = df_formodel_topcode,
   chains = 4,
   cores = 16,
-  backend = "cmdstanr",
-  threads = threading(4),
+  # backend = "cmdstanr",
+  # threads = threading(4),
   #  control = list(adapt_delta = 0.9), 
   iter = 4000)
 
-write_rds(final_mobility_model, file = here('data', 'mrp', 'models', 'nonhh_model.rds'))
+write_rds(nonhh_model, file = here('data', 'models', 'nonhh_model.rds'))
 ```
 
 
 
+```{r}
+## filter to respondents in household with more than 1 person 
+df_formodel_topcode_household <- df_formodel_topcode %>%
+  filter(hhsize != "1") 
+```
+
+
+Run final household model for paper 
+
+```{r}
+## run model (estimated run time: 978 seconds)
+hh_model <- brm(
+  formula = mvbind(alter_age_0_18_hh, alter_age_18_25_hh, alter_age_25_35_hh, alter_age_35_45_hh, alter_age_45_55_hh, alter_age_55_65_hh, alter_age_65_100_hh) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    agecat:gender + 
+    (1 | state),
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode_household,
+  chains = 4,
+  cores = 16,
+  iter = 4000)
+
+## write out model 
+write_rds(hh_model, file = here('data', 'models', 'hh_model.rds'))
+```

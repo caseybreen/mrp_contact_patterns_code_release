@@ -13,7 +13,7 @@ Summary: This notebook contains code to construct reference data for multilevel 
 library(here)
 
 ## Load helper functions and library all packages used for analysis
-source(here("code", "models", "mrp", "helpers.R"))
+source(here("code", "helpers.R"))
 ```
 
 
@@ -23,10 +23,10 @@ Read in 5-yr ACS with IPUMSR package
 
 ```{r}
 ## read in ipums data
-acs18_5yr <- read_ipums_micro(ddi = here("data", "ACS", "acs_5yr2018", "usa_00032.xml"), verbose = F)
+acs18_5yr <- read_ipums_micro(ddi = here("data", "input", "acs_5yr2018", "usa_00032.xml"), verbose = F)
 
 ## fips code
-fips <- readRDS(here("data", "mrp", "input", "fips.rds"))
+fips <- readRDS(here("data", "input", "acs_5yr2018", "fips.rds"))
 ```
 
 ## Format data 
@@ -69,20 +69,13 @@ acs18_5yr_recode <- acs18_5yr %>%
       include.lowest = TRUE,
       right = FALSE
     ),
-    countyfip = str_pad(countyfip,
-      width = 3,
-      side = "left",
-      pad = "0"
-    ),
     state_fips = str_pad(statefip,
       width = 2,
       side = "left",
       pad = "0"
-    ),
-    county_fips = paste0(state_fips, countyfip)
-  ) %>%
+    )  ) %>%
   left_join(fips, by = c("state_fips" = "state_code")) %>%
-  select(educ, race, hhsize, gender, agecat, county_fips, state, perwt) %>%
+  select(educ, race, hhsize, gender, agecat, state, perwt) %>%
   janitor::clean_names()
 ```
 
@@ -120,11 +113,11 @@ acs_national_symmetry <- acs18_5yr_recode %>%
 
 ```{r}
 ## state level targets
-write_rds(acs_state_reference, here("data", "mrp", "input", "acs_state_reference.rds"))
+write_rds(acs_state_reference, here("data", "intermediate", "acs_state_reference.rds"))
 
 ## state level symmetry
-write_rds(acs_state_symmetry, here("data", "mrp", "input", "acs_state_symmetry.rds"))
+write_rds(acs_state_symmetry, here("data", "intermediate", "acs_state_symmetry.rds"))
 
 ## national level symmetry
-write_rds(acs_national_symmetry, here("data", "mrp", "input", "acs_national_symmetry.rds"))
+write_rds(acs_national_symmetry, here("data", "intermediate", "acs_national_symmetry.rds"))
 ```

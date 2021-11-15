@@ -52,9 +52,6 @@ mobility_model0a <- brm(
   cores = 16,
   iter = 4000)
 
-## write out model 
-write_rds(mobility_model0a, file = here('data', 'mrp', 'models', 'mobility_model0a.rds'))
-
 ## model with state-level hierarchical cubic time trend 
 ## Total execution time: 2065.0 seconds.
 mobility_model0b <- brm(
@@ -74,8 +71,6 @@ mobility_model0b <- brm(
   cores = 16,
   iter = 4000)
 
-## write out model 
-write_rds(mobility_model0b, file = here('data', 'mrp', 'models', 'mobility_model0b.rds'))
 
 ## Model with national-level polynomial and state-level hierarchical cubic time trend  
 ## Total execution time: 2065.0 seconds.
@@ -97,8 +92,6 @@ mobility_model0c <- brm(
   cores = 16,
   iter = 4000)
 
-## write out model 
-write_rds(mobility_model0c, file = here('data', 'mrp', 'models', 'mobility_model0c.rds'))
 
 ## mobility model 1
 mobility_model1 <- brm(
@@ -119,8 +112,6 @@ mobility_model1 <- brm(
   cores = 16,
   iter = 4000)
 
-## write out model 
-write_rds(mobility_model1, file = here('data', 'mrp', 'models', 'mobility_model1.rds'))
 
 ## pca + weekly monthly trends 
 ## Total execution time: 5696.4 seconds.
@@ -202,90 +193,9 @@ write_rds(mobility_model4, file = here('data', 'mrp', 'models', 'mobility_model4
 Post-stratification code is in the `03_poststratification_daily.Rmd` Notebook. 
 
 
-```{r}
-## prepared for model  
-df_formodel <- read_rds(here('data', 'mrp', 'input', 'df_formodel_waves1_6.rds')) 
-
-## top code total number of reported contacts at 30 
-top_code <- function(x) {
-  x <- case_when(
-    x > 100 ~ 100,
-    TRUE ~ x
-  )
-}
-
-## topcode data.frame 
-df_formodel_topcode_100 <- df_formodel %>%
-  mutate(across(c(starts_with("alter_age")), top_code))
-
-
-## add on google mobility data 
-google_pca_data <- read_rds(file=here('data', 'mrp', 'input', 'google_mobility_pca.rds'))
-
-df_formodel_topcode_100 <- df_formodel_topcode_100 %>% 
-  mutate(date = as_date(startdate)) %>% 
-  left_join(google_pca_data %>% rename(state = state), by = c("state", "date"))
-```
-
-
-```{r}
-## mobility + monthly national cubic + state-level hierarchical cubic term 
-## Total execution time: 5346.0 seconds.
-final_mobility_model_topcode_100 <- brm(
-  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
-    agecat +
-    gender +
-    hhsize + 
-    race + 
-    weekday + 
-    agecat:gender + 
-    rolling_pca_3wks + ## mobility data 
-    poly(day_std, 3) + ## national polynomial trend 
-    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
-  family = 'negbinomial',
-  inits = 0,
-  data = df_formodel_topcode_100,
-  chains = 4,
-  cores = 16,
-  backend = "cmdstanr",
-  threads = threading(4),
-  #  control = list(adapt_delta = 0.9), 
-  iter = 4000)
-
-```
-
-```{r}
-coef_nonhh_model %>% 
-  inner_join(coef_nonhh_model_topcode100, by = "rowname") %>% 
-  mutate(diff = 100 * abs(Estimate.x - Estimate.y) / ((Estimate.x + Estimate.y) / 2)) %>% 
-  View()
-
-comparison_plot <- coef_nonhh_model %>% 
-  mutate(model = "topcode 30") %>% 
-  bind_rows(coef_nonhh_model_topcode100 %>% 
-              mutate(model = "topcode 100")) %>% 
- # mutate(diff = 100 * abs(Estimate.x - Estimate.y) / ((Estimate.x + Estimate.y) / 2)) %>% 
-  ggplot(aes(y = rowname, x = Estimate, xmin = Q2.5, xmax = Q97.5, color = model)) + 
-  geom_pointrange(position = position_dodge(width = 1)) + 
-  theme_cowplot() + 
-  ggsci::scale_color_lancet() 
-
-ggsave(plot = comparison_plot, filename = here("code", "models", "mrp", "figures", "model_comparison_topcode.png" ), height = 30, width = 10)
-```
 
 
 
-```{r}
-## write out model
-mobility_model1 <- read_rds(file = here('data', 'mrp', 'models', 'mobility_model1.rds'))
-mobility_model2 <- read_rds(file = here('data', 'mrp', 'models', 'mobility_model2.rds'))
-mobility_model3 <- read_rds(file = here('data', 'mrp', 'models', 'mobility_model3.rds'))
-mobility_model4 <- read_rds(file = here('data', 'mrp', 'models', 'mobility_model4.rds'))
-mobility_model5 <- read_rds(file = here('data', 'mrp', 'models', 'mobility_model5.rds'))
-mobility_model6 <- read_rds(file = here('data', 'mrp', 'models', 'mobility_model6.rds'))
-mobility_model7 <- read_rds(file = here('data', 'mrp', 'models', 'mobility_model7.rds'))
-mobility_model8 <- read_rds(file = here('data', 'mrp', 'models', 'mobility_model8.rds'))
-```
 
 
 ```{r}
@@ -360,9 +270,7 @@ hh_model_loo <- loo(hh_model,
                            cores = getOption("mc.cores", 1))
 ```
 
-```{r}
-loo_compare(mobility_model0a_loo, mobility_model0b_loo, mobility_model0c_loo, mobility_model0d_loo, mobility_model1_loo, mobility_model2_loo, mobility_model3_loo, mobility_model4_loo, mobility_model5_loo, mobility_model6_loo, mobility_model7_loo, mobility_model8_loo)
-```
+
 ```{r}
 loo_compare(mobility_model0c_loo, mobility_model3_loo, mobility_model3.1_loo)
 ```

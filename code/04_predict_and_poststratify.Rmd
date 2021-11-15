@@ -14,42 +14,52 @@ Specifically, the this code will:
 ```{r}
 ## library here package 
 library(here)
+
 ## Load helper functions and library all packages used for analysis 
-source(here("code", "models", "mrp", "helpers.R"))
+source(here("code", "helpers.R"))
 
 ## specify package options 
 options(dplyr.summarise.inform = FALSE)
 
+## set number of posterior predictive draws
+num_draws <- 100
+
+## set number of days to make predictions for (1 = April 11 2020)
+days <- c(348:411)
+```
+
+```{r}
 
 ## read in reference data
-acs_state_reference <- readRDS(here("data", "mrp", "input", "acs_state_reference.rds")) %>% 
+acs_state_reference <- readRDS(here("data", "intermediate", "acs_state_reference.rds")) %>% 
   filter(agecat != "[0,18)") %>% 
   droplevels() %>% 
   select(hhsize, state, agecat, gender, race, prop, count) %>% 
   ungroup()
 
 ## read in acs state proportions 
-acs_state_symmetry <- readRDS(here("data", "mrp", "input", "acs_state_symmetry.rds")) %>% 
+acs_state_symmetry <- readRDS(here("data", "intermediate", "acs_state_symmetry.rds")) %>% 
   group_by(state) %>% 
   mutate(prop = count/sum(count)) %>% 
   ungroup() %>% 
   mutate(ego_age = agecat)
 
 ## national level symmetry
-acs_national_symmetry <- readRDS(here("data", "mrp", "input", "acs_national_symmetry.rds")) 
+acs_national_symmetry <- readRDS(here("data", "intermediate", "acs_national_symmetry.rds")) 
 
-google_pca_data <- read_rds(file=here('data', 'mrp', 'input', 'google_mobility_pca.rds')) %>% 
+## read in google mobility data 
+google_pca_data <- read_rds(file=here('data', 'intermediate', 'google_mobility_pca.rds')) %>% 
   select(date, state = state, rolling_pca_3wks)
 
 ## Non-Household Model
-nonhh_model <- read_rds(file = here('data', 'mrp', 'models', 'nonhh_model.rds'))
+nonhh_model <- read_rds(file = here('data', 'models', 'nonhh_model.rds'))
 
 ## Household Model 
-hh_model <- read_rds(file = here('data', 'mrp', 'models', 'hh_model.rds'))
+hh_model <- read_rds(file = here('data', 'models', 'hh_model.rds'))
 ```
 
 
-Create Predictions 
+Create function for predictions 
 
 ```{r}
 make_predictions <- function(day, nonhh_model = nonhh_model, hh_model = hh_model, draws = 10){
@@ -114,25 +124,21 @@ make_predictions <- function(day, nonhh_model = nonhh_model, hh_model = hh_model
   newList <- list(eigenvalue_df, contact_df)
   
   ## write out and save predictions 
-  write_rds(x = newList, file = here('data', 'mrp', 'predictions_100', paste0('prediction_day', day, ".rds")))
+  write_rds(x = newList, file = here('data', 'predictions', paste0('prediction_day', day, ".rds")))
 
   ## print out day to keep track 
   cat(day)
-
   
   ## return list with (1) summary statistics of contact (eigenvalue ratio, R0, q-index) 
   ## and (2) contact matrices (with credible intervals)
   return(newList)
-  }
+}
+```
 
-## days for predictions 
-## may, Aug, Jan 1 
-days <- c(1:411)
-# 
-# ## create progress bar  
-# pb <- progress_bar$new(total = length(days))
+## run functions 
 
+```{r}
 tic("total prediction time")
-state_level_predictions_test <- map(days, ~make_predictions(.x, nonhh_model = nonhh_model, hh_model = hh_model, draws = 100))
+state_level_predictions_test <- map(days, ~make_predictions(.x, nonhh_model = nonhh_model, hh_model = hh_model, draws = num_draws))
 toc()
 ```

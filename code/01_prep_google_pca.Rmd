@@ -18,7 +18,7 @@ This script takes raw mobility mobility reports from Google (https://www.google.
 library(here)
 
 ## Load helper functions and library all packages used for analysis
-source(here("code", "models", "mrp", "helpers.R"))
+source(here("code", "helpers.R"))
 ```
 
 
@@ -26,8 +26,8 @@ source(here("code", "models", "mrp", "helpers.R"))
 
 ```{r, message = FALSE}
 ## read raw google mobility data
-google_mobility_data_2020 <- read_csv(here("data", "mrp", "input", "2020_US_Region_Mobility_Report.csv"), col_types = cols())
-google_mobility_data_2021 <- read_csv(here("data", "mrp", "input", "2021_US_Region_Mobility_Report.csv"), col_types = cols())
+google_mobility_data_2020 <- read_csv(here("data", "input", "2020_US_Region_Mobility_Report.csv"), col_types = cols())
+google_mobility_data_2021 <- read_csv(here("data", "input", "2021_US_Region_Mobility_Report.csv"), col_types = cols())
 
 google_mobility_data <- bind_rows(google_mobility_data_2020, google_mobility_data_2021)
 
@@ -103,5 +103,5 @@ google_mobility_data_pca <- google_mobility_data_pca %>%
 
 
 ## write out pca file
-write_rds(google_mobility_data_pca, file = here("data", "mrp", "input", "google_mobility_pca.rds"))
+write_rds(google_mobility_data_pca, file = here("data", "intermediate", "google_mobility_pca.rds"))
 ```
