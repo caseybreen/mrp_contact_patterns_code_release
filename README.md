@@ -7,19 +7,19 @@ A pre-print of the paper is available on SocArXiv: [https://osf.io/preprints/soc
 
 ### Replication Package
 
-The this repository includes code to replicate all figures and tables in the paper. There are three key steps to running the replication code: 
+The this repository includes code to replicate all figures and tables in the paper. There are three steps to running the replication code: 
 
 1. Clone this repository
-2. Download the `data.zip` file from the [accompanying OSF project](https://osf.io/aecwn/). Unzip the data folder and move it to the top level of the cloned repository. 
-3. Run the `00_run_all.Rmd` script to run all code (or run scripts `01` to `05` individually)
+2. Download the `data.zip` file from the [accompanying OSF project](https://osf.io/aecwn/), unzip the data file, and move it to the top level of the repository. 
+3. Run the `00_run_all.Rmd` script, which will run all code (or run scripts `01` to `05` individually)
 
 
 #### Data 
 
-All data for replicaiton are all available on the project's [OSF  repository](https://osf.io/aecwn/). The data were originally obtained from: 
+Please download all data for replication from the project's [OSF project](https://osf.io/aecwn/). The data were originally obtained from: 
 
-- ACS 2014-2018 5-year, csv and .xml [link](https://usa.ipums.org/usa/)
-- Google Mobility Reports [link](https://www.google.com/covid19/mobility/)
+- ACS 2014-2018 5-year, csv and .xml [[link](https://usa.ipums.org/usa/)]
+- Google Mobility Reports [[link](https://www.google.com/covid19/mobility/)]
 
 #### Code 
 

@@ -5,7 +5,7 @@ author: Casey Breen
 
 ## Summary
 
-In this notebook, I fit a model to estimate total number of non-household contacts. (I also fit a few alternative model specifications.)
+This notebook contains code to fit two models: one model to estimate non-household contacts and one to model to estimate household contacts.
 
 ```{r}
 ## library here package 

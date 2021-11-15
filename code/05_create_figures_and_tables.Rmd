@@ -67,7 +67,9 @@ google_pca_data <- read_rds(file = here("data", "intermediate", "google_mobility
 
 ```
 
-## calcuate R_0 
+# Replicate Figures 
+
+Set-up: Calculate $R_0$ 
 
 ```{r}
 ## calculate R0
@@ -92,60 +94,9 @@ summary_statistics <- summary_statistics %>%
   mutate(eigenvalue_ratio = leading_eigenvalue / prepandemic_eigenvalue)
 ```
 
+## Fig-1
 
-## Contact Matrices Plot
-
-Plot one contact matrix for each month 
-
-```{r}
-months <- contact_matrices_predictions %>%
-  mutate(month = lubridate::format_ISO8601(month, precision = "ym")) %>%
-  distinct(month) %>%
-  pull()
-
-for (month_i in months) {
-
-  ## Example states: California, April 2020
-  state_level_mixing_matrices_symmetrical <- contact_matrices_predictions %>%
-    mutate(month = lubridate::format_ISO8601(month, precision = "ym")) %>%
-    filter(month == month_i) %>%
-    group_by(month, state, .ego_age, .alter_age) %>%
-    summarize(
-      sym_avg_per_ego = mean(contacts),
-      lower = mean(lower),
-      upper = mean(upper)
-    ) %>%
-    ggplot() +
-    geom_tile(aes(x = .ego_age, y = .alter_age, fill = sym_avg_per_ego)) +
-    # facet_grid(ego_sex ~ alter_sex) +
-    coord_equal() +
-    # viridis::scale_fill_viridis(name = str_wrap("Contacts per respondent", width = 10)) +
-    scale_fill_gradientn(
-      colors = viridis::viridis_pal()(9),
-      limits = c(0, 4.41),
-      na.value = "#FDE725FF",
-      name = str_wrap("Contacts per respondent", width = 10)
-    ) +
-    facet_geo(~state) +
-    theme_minimal(base_size = 10) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1, vjust = .3),
-      axis.title = element_text(size = 15),
-      plot.title = element_text(size = 22)
-    ) +
-    labs(
-      title = glue("State-Level Contact Matrices ({month_i})"),
-      x = "Ego age",
-      y = "Alter age"
-    )
-
-  ggsave(plot = state_level_mixing_matrices_symmetrical, height = 10, width = 13, file = here("figures", glue("state_level_mixing_matrices_symmetrical{month_i}.png")))
-}
-```
-
-## Compare predictions to actual survey results 
-
-Compare our predictions to our actual survey results 
+Compare model-based predictions to raw survey results 
 
 ```{r}
 ## California raw estimates 
@@ -276,9 +227,99 @@ raw_vs_modeled_plot <- cowplot::plot_grid(ca_mrp, al_mrp, labels = "auto", nrow 
 ggsave(plot = raw_vs_modeled_plot, height = 12, width = 14, file = here("figures", "raw_vs_modeled_plot.png"))
 ```
 
+## Fig-2: Contact Matrices
 
- 
-## Average Monthly Contacts 
+Plot contact matrix for each month 
+
+```{r}
+months <- contact_matrices_predictions %>%
+  mutate(month = lubridate::format_ISO8601(month, precision = "ym")) %>%
+  distinct(month) %>%
+  pull()
+
+for (month_i in months) {
+
+  ## Example states: California, April 2020
+  state_level_mixing_matrices_symmetrical <- contact_matrices_predictions %>%
+    mutate(month = lubridate::format_ISO8601(month, precision = "ym")) %>%
+    filter(month == month_i) %>%
+    group_by(month, state, .ego_age, .alter_age) %>%
+    summarize(
+      sym_avg_per_ego = mean(contacts),
+      lower = mean(lower),
+      upper = mean(upper)
+    ) %>%
+    ggplot() +
+    geom_tile(aes(x = .ego_age, y = .alter_age, fill = sym_avg_per_ego)) +
+    # facet_grid(ego_sex ~ alter_sex) +
+    coord_equal() +
+    # viridis::scale_fill_viridis(name = str_wrap("Contacts per respondent", width = 10)) +
+    scale_fill_gradientn(
+      colors = viridis::viridis_pal()(9),
+      limits = c(0, 4.41),
+      na.value = "#FDE725FF",
+      name = str_wrap("Contacts per respondent", width = 10)
+    ) +
+    facet_geo(~state) +
+    theme_minimal(base_size = 10) +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = .3),
+      axis.title = element_text(size = 15),
+      plot.title = element_text(size = 22)
+    ) +
+    labs(
+      title = glue("State-Level Contact Matrices ({month_i})"),
+      x = "Ego age",
+      y = "Alter age"
+    )
+
+  ggsave(plot = state_level_mixing_matrices_symmetrical, height = 10, width = 13, file = here("figures", glue("state_level_mixing_matrices_symmetrical{month_i}.png")))
+}
+```
+
+## Fig-3: Calculate eigenvalue ratio
+
+Calculate eigenvalue ratio over time for all 50 states
+
+```{r}
+monthly_estimates_eigenvalue <- summary_statistics %>%
+  group_by(date, state) %>%
+  summarize(
+    lower = quantile(eigenvalue_ratio, .1),
+    upper = quantile(eigenvalue_ratio, .9),
+    eigenvalue_ratio = mean(eigenvalue_ratio)
+  ) %>%
+  group_by(month = lubridate::floor_date(date, "month"), state) %>%
+  summarize(
+    lower = mean(lower),
+    upper = mean(upper),
+    eigenvalue_ratio = mean(eigenvalue_ratio)
+  )
+
+eigenvalue_plot_ribbon_month <- monthly_estimates_eigenvalue %>%
+  ggplot(aes(x = month, y = eigenvalue_ratio, group = 1, ymin = lower, ymax = upper)) +
+  geom_ribbon(fill = "grey80") +
+  geom_point() +
+  geom_line() +
+  geom_hline(yintercept = 1, linetype = "dashed", col = "black") +
+  theme_cowplot() +
+  panel_border() +
+  background_grid() +
+  facet_geo(~state) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(
+    x = "Date",
+    y = "Eigenvalue Ratio",
+    title = ""
+  ) +
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
+  theme(panel.spacing.x = unit(10, "mm"))
+
+ggsave(plot = eigenvalue_plot_ribbon_month, height = 12, width = 18, file = here("figures", "eigenvalue_ratio_state_plot.png"))
+```
+
+
+## Appendix: Average Monthly Contacts 
 
 Plot total average monthly total contacts (household and non-household) at the state level over time.  
 
@@ -326,46 +367,9 @@ total_contacts_plot <- total_contact_predictions %>%
 ggsave(plot = total_contacts_plot, height = 12, width = 18, file = here("figures", "total_contact_state_plot.png"))
 ```
 
-## calculate eigenvalues 
 
-```{r}
-monthly_estimates_eigenvalue <- summary_statistics %>%
-  group_by(date, state) %>%
-  summarize(
-    lower = quantile(eigenvalue_ratio, .1),
-    upper = quantile(eigenvalue_ratio, .9),
-    eigenvalue_ratio = mean(eigenvalue_ratio)
-  ) %>%
-  group_by(month = lubridate::floor_date(date, "month"), state) %>%
-  summarize(
-    lower = mean(lower),
-    upper = mean(upper),
-    eigenvalue_ratio = mean(eigenvalue_ratio)
-  )
 
-eigenvalue_plot_ribbon_month <- monthly_estimates_eigenvalue %>%
-  ggplot(aes(x = month, y = eigenvalue_ratio, group = 1, ymin = lower, ymax = upper)) +
-  geom_ribbon(fill = "grey80") +
-  geom_point() +
-  geom_line() +
-  geom_hline(yintercept = 1, linetype = "dashed", col = "black") +
-  theme_cowplot() +
-  panel_border() +
-  background_grid() +
-  facet_geo(~state) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(
-    x = "Date",
-    y = "Eigenvalue Ratio",
-    title = ""
-  ) +
-  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
-  theme(panel.spacing.x = unit(10, "mm"))
-
-ggsave(plot = eigenvalue_plot_ribbon_month, height = 12, width = 18, file = here("figures", "eigenvalue_ratio_state_plot.png"))
-```
-
-## R0
+## Appnedix: R0 over time 
 
 ```{r}
 monthly_estimates_R0 <- summary_statistics %>%
@@ -403,7 +407,57 @@ R0_plot_ribbon_month <- monthly_estimates_R0 %>%
 ggsave(plot = R0_plot_ribbon_month, height = 12, width = 18, file = here("figures", "R0_state_plot.png"))
 ```
 
-## Q index plot 
+## Fig-4: Reproductive Values
+
+Calculate relative reproductive values. This is equivalent to the left eigenvector. 
+
+```{r}
+## select states and calculate standardized eigenvectors 
+left_eigenvector <- summary_statistics %>%
+  filter(state %in% c("CA", "NY", "TX")) %>%
+  select(state, day_std, .draw, left_eigenvector) %>%
+  unnest(left_eigenvector) %>%
+  group_by(state, day_std, .draw) %>%
+  mutate(left_eigenvector_standardized = abs(eigenvector / first(eigenvector))) %>%
+  ungroup()
+
+## calculate mean and 80% credible interval of relative reproductive values 
+example_state_left <- left_eigenvector %>%
+  mutate(date = as_date("2020-04-11") + day_std) %>%
+  mutate(month = lubridate::floor_date(date, "month")) %>%
+  filter(month %in% c(as_date(" 2020-04-01"), as_date("2021-1-01"), as_date("2021-5-01"))) %>%
+  group_by(state, agecat, month) %>%
+  summarize(
+    left_eigenvector_mean = mean(left_eigenvector_standardized),
+    lower = quantile(left_eigenvector_standardized, 0.1),
+    upper = quantile(left_eigenvector_standardized, 0.9)
+  ) 
+
+## plot reproductive numbers 
+reproductive_values <- example_state_left %>%
+  ggplot(aes(
+    x = agecat,
+    y = left_eigenvector_mean,
+    fill = state,
+    ymin = lower,
+    ymax = upper
+  )) +
+  geom_col(position = "dodge", width = .75, size = 3) +
+  geom_linerange(position = position_dodge(.75)) +
+  theme_cowplot() +
+  scale_fill_brewer(palette = "Blues") +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "Age Group",
+    y = ""
+  ) +
+  facet_wrap(~ as_date(month))
+
+## save relative reproductive values plot 
+ggsave(plot = reproductive_values, height = 7, width = 17, file = here("figures", "reproductive_values_plot.png"))
+```
+
+## Appendix: Q index plot 
 
 Calculate q-index plots showing assortativity with respect to age. 
 
@@ -599,55 +653,7 @@ ggsave(plot = ca_plot, height = 18, width = 14, file = here("figures", "ca_plot.
 ```
 
 
-## Reproductive Values
 
-Calculate relative reproductive values. This is equivalent to the left eigenvector. 
-
-```{r}
-## select states and calculate standardized eigenvectors 
-left_eigenvector <- summary_statistics %>%
-  filter(state %in% c("CA", "NY", "TX")) %>%
-  select(state, day_std, .draw, left_eigenvector) %>%
-  unnest(left_eigenvector) %>%
-  group_by(state, day_std, .draw) %>%
-  mutate(left_eigenvector_standardized = abs(eigenvector / first(eigenvector))) %>%
-  ungroup()
-
-## calculate mean and 80% credible interval of relative reproductive values 
-example_state_left <- left_eigenvector %>%
-  mutate(date = as_date("2020-04-11") + day_std) %>%
-  mutate(month = lubridate::floor_date(date, "month")) %>%
-  filter(month %in% c(as_date(" 2020-04-01"), as_date("2021-1-01"), as_date("2021-5-01"))) %>%
-  group_by(state, agecat, month) %>%
-  summarize(
-    left_eigenvector_mean = mean(left_eigenvector_standardized),
-    lower = quantile(left_eigenvector_standardized, 0.1),
-    upper = quantile(left_eigenvector_standardized, 0.9)
-  ) 
-
-## plot reproductive numbers 
-reproductive_values <- example_state_left %>%
-  ggplot(aes(
-    x = agecat,
-    y = left_eigenvector_mean,
-    fill = state,
-    ymin = lower,
-    ymax = upper
-  )) +
-  geom_col(position = "dodge", width = .75, size = 3) +
-  geom_linerange(position = position_dodge(.75)) +
-  theme_cowplot() +
-  scale_fill_brewer(palette = "Blues") +
-  theme(legend.position = "bottom") +
-  labs(
-    x = "Age Group",
-    y = ""
-  ) +
-  facet_wrap(~ as_date(month))
-
-## save relative reproductive values plot 
-ggsave(plot = reproductive_values, height = 7, width = 17, file = here("figures", "reproductive_values_plot.png"))
-```
 
 
 ## Tables and numbers reported in text 

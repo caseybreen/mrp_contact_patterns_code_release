@@ -2,7 +2,8 @@
 title: "Alternative Models"
 ---
 
-## Alternative Models
+Summary: This notebook contains code to run alternative models and 
+perform model selection using PSIS-LOO. 
 
 ```{r}
 ## library here package 
@@ -13,7 +14,7 @@ source(here("code", "helpers.R"))
 set.seed(1) 
 ```
 
-## read in data for model 
+Read in data for model 
 
 ```{r}
 ## prepared for model  
@@ -32,7 +33,7 @@ df_formodel_topcode <- df_formodel %>%
   mutate(across(c(starts_with("alter_age")), top_code))
 ```
 
-Alternative model specifications with different time trends. 
+Alternative model specifications with different time trends
 
 ```{r}
 ## model with national-level time trend polynomial 
@@ -91,14 +92,7 @@ mobility_model3 <- brm(
   iter = 4000)
 ```
 
-Post-stratification code is in the `03_poststratification_daily.Rmd` Notebook. 
-
-
-
-
-
-
-
+Run models with different specifications for time trend
 ```{r}
 mobility_model1_loo <- loo(mobility_model1,
                            ndraws = 1000,
@@ -119,6 +113,7 @@ mobility_model3_loo <- loo(mobility_model3,
 
 
 Appendix Table 2 
+
 ```{r}
 loo_compare(mobility_model1_loo, mobility_model2_loo, mobility_model3_loo)
 ```

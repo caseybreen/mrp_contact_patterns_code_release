@@ -4,12 +4,13 @@ title: "Calculate contact matrices and R0"
 
 Summary: This notebook contains code to produce post-stratified estimates of social contact and calculate summary statistics for social contact.  
 
-Specifically, the this code will: 
+Specifically, this code will: 
 
-(1) Produce Post-stratified estimates 
-(2) Adjust matrices for symmetry
-(3) Estimate contact for youngest age group (not surveyed)
-(4) Calculate contact matrices and estimates of R0, eigenvalue ratio, and total contact 
+1. Predict contact patterns using predictived posterior draws from Bayesian models  
+2. Poststratify the predictions
+3. Adjust matrices for symmetry
+4. Estimate contact for youngest age group (not surveyed)
+5. Calculate contact matrices and estimates of R0, eigenvalue ratio, and total contact 
 
 ```{r}
 ## library here package 
