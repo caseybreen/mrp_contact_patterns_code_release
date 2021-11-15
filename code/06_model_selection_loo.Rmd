@@ -16,6 +16,7 @@ set.seed(1)
 
 Read in data for model 
 
+
 ```{r}
 ## prepared for model  
 df_formodel <- read_rds(here('data', 'input', 'bics_data_waves_1-6.rds')) 
