@@ -8,14 +8,14 @@ title: "Alternative Models"
 ## library here package 
 library(here)
 ## Load helper functions and library all packages used for analysis 
-source(here("code", "models", "mrp", "helpers.R"))
+source(here("code", "helpers.R"))
 ```
 
 ## read in data for model 
 
 ```{r}
 ## prepared for model  
-df_formodel <- read_rds(here('data', 'mrp', 'input', 'df_formodel_waves1_6.rds')) 
+df_formodel <- read_rds(here('data', 'input', 'bics_data_waves_1-6.rds')) 
 
 ## top code total number of reported contacts at 30 
 top_code <- function(x) {
@@ -35,7 +35,7 @@ Alternative model specifications with different time trends.
 ```{r}
 ## model with national-level time trend polynomial 
 ## Total execution time: 2052.9 seconds.
-mobility_model0a <- brm(
+mobility_model1 <- brm(
   formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~
     agecat +
     gender +
@@ -52,29 +52,10 @@ mobility_model0a <- brm(
   cores = 16,
   iter = 4000)
 
-## model with state-level hierarchical cubic time trend 
-## Total execution time: 2065.0 seconds.
-mobility_model0b <- brm(
-  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~
-    agecat +
-    gender +
-    hhsize + 
-    race + 
-    weekday + 
-  (poly(day_std, 3) | state), ## state level pooled polynomial trend 
-  family = 'negbinomial',
-  inits = 0,
-  data = df_formodel_topcode,
-  chains = 4,
-  backend = "cmdstanr",
-  threads = threading(4),
-  cores = 16,
-  iter = 4000)
-
 
 ## Model with national-level polynomial and state-level hierarchical cubic time trend  
 ## Total execution time: 2065.0 seconds.
-mobility_model0c <- brm(
+mobility_model2 <- brm(
   formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~
     agecat +
     gender +
@@ -92,53 +73,6 @@ mobility_model0c <- brm(
   cores = 16,
   iter = 4000)
 
-
-## mobility model 1
-mobility_model1 <- brm(
-  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
-    agecat +
-    gender +
-    hhsize + 
-    race + 
-    weekday + 
-    (1 | state) + 
-    rolling_pca_3wks, 
-  family = 'negbinomial',
-  inits = 0,
-  data = df_formodel_topcode,
-  chains = 4,
-  backend = "cmdstanr",
-  threads = threading(4),
-  cores = 16,
-  iter = 4000)
-
-
-## pca + weekly monthly trends 
-## Total execution time: 5696.4 seconds.
-mobility_model2 <- brm(
-  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
-    agecat +
-    gender +
-    hhsize + 
-    race + 
-    weekday + 
-    rolling_pca_3wks + 
-    (poly(day_std, 3) | state), 
-  family = 'negbinomial',
-  inits = 0,
-  data = df_formodel_topcode,
-  chains = 4,
-  cores = 16,
-  backend = "cmdstanr",
-  threads = threading(4),
-#  control = list(adapt_delta = 0.9), 
-  iter = 4000)
-
-
-## write out model 
-write_rds(mobility_model2, file = here('data', 'mrp', 'models', 'mobility_model2.rds'))
-
-## mobility + monthly national cubic + state-level hierarchical term 
 ## Total execution time: 5346.0 seconds.
 mobility_model3 <- brm(
   formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
@@ -147,32 +81,8 @@ mobility_model3 <- brm(
     hhsize + 
     race + 
     weekday + 
-    rolling_pca_3wks + ## mobility data 
-    poly(day_std, 3) + ## national polynomial trend 
-    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
-  family = 'negbinomial',
-  inits = 0,
-  data = df_formodel_topcode,
-  chains = 4,
-  cores = 16,
-  backend = "cmdstanr",
-  threads = threading(4),
-#  control = list(adapt_delta = 0.9), 
-  iter = 4000)
-
-## write out model 
-write_rds(mobility_model3, file = here('data', 'mrp', 'models', 'mobility_model3.rds'))
-
-## Total execution time: 5346.0 seconds.
-mobility_model4 <- brm(
-  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
-    agecat +
-    gender +
-    hhsize + 
-    race + 
-    weekday + 
-    (1 | state ) + 
-    rolling_pca_3wks + ## mobility data 
+    rolling_pca_3wks + ## mobility data
+   (poly(day_std, 3) | state) +  ## state level pooled polynomial trend 
     poly(day_std, 3), ## national polynomial trend 
   family = 'negbinomial',
   inits = 0,
@@ -183,11 +93,6 @@ mobility_model4 <- brm(
   threads = threading(4),
 #  control = list(adapt_delta = 0.9), 
   iter = 4000)
-
-
-## write out model 
-write_rds(mobility_model4, file = here('data', 'mrp', 'models', 'mobility_model4.rds'))
-
 ```
 
 Post-stratification code is in the `03_poststratification_daily.Rmd` Notebook. 
@@ -213,66 +118,11 @@ mobility_model3_loo <- loo(mobility_model3,
                            nsamples = 1000,
                            draws = NULL,
                            cores = getOption("mc.cores", 1))
-
-mobility_model3.1_loo <- loo(mobility_model3.1,
-                           nsamples = 1000,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
-
-mobility_model4_loo <- loo(mobility_model4,
-                           nsamples = 1000,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
-
-mobility_model5_loo <- loo(mobility_model5,
-                           nsamples = 1000,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
-
-mobility_model6_loo <- loo(mobility_model6,
-                           nsamples = 1000,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
-
-mobility_model7_loo <- loo(mobility_model7,
-                           nsamples = 1000,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
-
-mobility_model8_loo <- loo(mobility_model8,
-                           nsamples = 1000,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
-
-mobility_model0a_loo <- loo(mobility_model0a,
-                           nsamples = 1000,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
-
-mobility_model0b_loo <- loo(mobility_model0b,
-                           nsamples = 1000,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
-
-mobility_model0c_loo <- loo(mobility_model0c,
-                           nsamples = 1000,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
-
-mobility_model0d_loo <- loo(mobility_model0d,
-                           nsamples = 1000,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
-
-hh_model_loo <- loo(hh_model,
-                           nsamples = 100,
-                           draws = NULL,
-                           cores = getOption("mc.cores", 1))
 ```
 
 
 ```{r}
-loo_compare(mobility_model0c_loo, mobility_model3_loo, mobility_model3.1_loo)
+loo_compare(mobility_model1_loo, mobility_model2_loo, mobility_model3_loo)
 ```
 
 
