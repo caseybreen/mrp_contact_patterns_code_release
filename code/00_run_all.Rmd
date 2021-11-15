@@ -6,8 +6,7 @@ title: "Run all Scripts"
 
 This script runs all code to replicate figures and tables for the paper "Estimating Subnational Contact Patterns using Multilevel Regression with Poststratification." 
 
-The scripts are numbered in the order they should be run. The code takes approximately 14 hours to run. 
-
+The scripts are numbered in the order they should be run. To increase precision, update the number of draws 
 
 ```{r}
 library(here)
