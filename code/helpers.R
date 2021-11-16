@@ -31,10 +31,6 @@ suppressPackageStartupMessages(library(gghighlight))
 suppressPackageStartupMessages(library(glue))
 
 
-# This R.script contains helpful functions for working with contact matrices.
-#
-# source(here("code", "estimateR0", "utils.R"))
-
 ###########################################
 # global options                          #
 ###########################################
@@ -202,8 +198,7 @@ eigenvalue_ratio <- function(df) {
            second_eigenvalue, 
            right_eigenvector,
            left_eigenvector,
-           .draw,
-           R0
+           .draw
     )
   
   ##

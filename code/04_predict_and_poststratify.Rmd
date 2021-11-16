@@ -1,5 +1,5 @@
 ---
-title: "Calculate contact matrices and R0"
+title: "Predict and Post-Stratify"
 ---
 
 Summary: This notebook contains code to produce post-stratified estimates of social contact and calculate summary statistics for social contact.  
@@ -26,7 +26,7 @@ options(dplyr.summarise.inform = FALSE)
 num_draws <- 100
 
 ## set number of days to make predictions for (1 = April 11 2020)
-days <- c(348:411)
+days <- c(1:411)
 ```
 
 ```{r}
