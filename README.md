@@ -4,8 +4,6 @@ This repository contains code and materials to replicate "Estimating Subnational
 
 A pre-print of the paper is available on SocArXiv: [https://osf.io/preprints/socarxiv/87e32/](https://osf.io/preprints/socarxiv/87e32/) 
 
-
-
 ### Replication Package
 
 The this repository includes code to replicate all figures and tables in the paper. There are three steps to running the replication code: 

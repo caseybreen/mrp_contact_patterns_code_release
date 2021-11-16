@@ -245,7 +245,6 @@ summarize_contact <- function(input_df){
     second_eigenvalue = calculate_second_eigenvalue(input_matrix = input_matrix),
     right_eigenvector = list(calculate_right_eigenvector(input_matrix = input_matrix)),
     left_eigenvector = list(calculate_left_eigenvector(input_matrix = input_matrix)),
-    R0 = compute_R0(input_matrix = input_matrix)
   )
   
   return(summary_stats)
