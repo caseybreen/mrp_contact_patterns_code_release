@@ -1,0 +1,276 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+## library package
+library(here)
+
+## helper functions and library packages
+source(here("code", "helpers.R"))
+library(ggpubr)
+```
+
+## Read in data 
+
+```{r}
+## set working directory to read in draws
+predictions <- list.files(path = here("data", "predictions_no_mobility"), pattern = ".rds", full.names = T) %>%
+  map_dfr(read_rds)
+
+## contact matrices predictions
+contact_matrices_predictions <- predictions %>%
+  bind_rows() %>%
+  ungroup() %>%
+  filter(is.na(.draw)) %>%
+  mutate(date = as_date("2020-04-11") + day_std - 1) %>%
+  mutate(month = floor_date(date, "months"))
+
+## summary statistics predictions
+summary_statistics <- predictions %>%
+  bind_rows() %>%
+  ungroup() %>%
+  filter(!is.na(.draw)) %>%
+  mutate(date = as_date("2020-04-11") + day_std - 1) %>%
+  mutate(month = floor_date(date, "months")) %>%
+  mutate(state = state)
+
+## read in raw bics data 
+df_formodel <- read_rds(here("data", "input", "bics_data_waves_1-6.rds"))
+
+## top code total number of reported contacts at 30
+top_code <- function(x) {
+  x <- case_when(
+    x > 30 ~ 30,
+    TRUE ~ x
+  )
+}
+
+## topcode data.frame
+df_formodel_topcode <- df_formodel %>%
+  mutate(across(c(starts_with("alter_age")), top_code)) %>%
+  mutate(month = floor_date(as_date(startdate), "month"))
+
+## read in acs data
+acs_state_symmetry <- readRDS(here("data", "intermediate", "acs_state_symmetry.rds")) %>%
+  group_by(state) %>%
+  mutate(prop = count / sum(count)) %>%
+  ungroup() %>%
+  mutate(ego_age = agecat)
+
+## q index 
+google_pca_data <- read_rds(file = here("data", "intermediate", "google_mobility_pca.rds"))
+```
+
+```{r}
+## calculate R0
+baseline_R0 <- 2.54
+
+## baseline eigenvalue
+polymod_country <- "United Kingdom"
+polymod_age_limits <- c(0, 18, 25, 35, 45, 55, 65)
+
+## get polynmod data
+## supress warnings so it doesn't clog up pipeline
+polymod_mat <- suppressMessages(suppressWarnings(getPolymodMatrixNoSchool(
+  polymod_country = polymod_country,
+  polymod_age_limits = polymod_age_limits
+)))
+
+prepandemic_eigenvalue <- eigen(polymod_mat)$values[1]
+
+## calculate R0
+summary_statistics <- summary_statistics %>%
+  mutate(R0 = leading_eigenvalue / prepandemic_eigenvalue * baseline_R0) %>%
+  mutate(eigenvalue_ratio = leading_eigenvalue / prepandemic_eigenvalue)
+```
+
+
+
+```{r}
+mobility_data <- read_rds(file = here("data", "intermediate", "google_mobility_pca.rds"))
+
+daily_predictions <- summary_statistics %>%
+  group_by(date, month, state) %>%
+  summarize(
+    lower = quantile(eigenvalue_ratio, .1),
+    upper = quantile(eigenvalue_ratio, .9),
+    eigenvalue_ratio = mean(eigenvalue_ratio)
+  )
+
+combined_data <- daily_predictions %>% 
+  left_join(mobility_data)
+
+combined_data %>% 
+  ggplot(aes(x = eigenvalue_ratio, y = rolling_pca_3wks)) + 
+  geom_point() + 
+  theme_cowplot() + 
+  geom_smooth(method = "lm") + 
+  stat_cor(method = "pearson", color = "blue", size = 5, label.x = .7, cor.coef.name = "R") + 
+  facet_wrap(~month)
+
+
+combined_data %>% 
+  ggplot(aes(y = eigenvalue_ratio, x = -rolling_pca_3wks)) + 
+  geom_point() + 
+  theme_cowplot() + 
+  geom_smooth(method = "lm") + 
+  stat_cor(method = "pearson", color = "blue", size = 4, label.x = .7, cor.coef.name = "R", aes(label = ..r.label..)) + 
+  facet_geo(~state) + 
+  labs(title = "Correlation between daily MRP estimates (no mobility) and Google Mobility Indicators",
+       x = "Rolling 3-week Mobility PC1",
+       y = "Eigenvalue Ratio")
+  
+```
+
+
+```{r}
+## California raw estimates 
+raw_reported_contact <- df_formodel_topcode %>%
+ #  filter(estimated_state %in% c("NY", "CA", "WA")) %>% 
+  group_by(month = lubridate::floor_date(as_date(startdate), "month")) %>%
+  filter(n() > 10) %>% 
+  summarise(raw_contact = mean(alter_age_0_18 + alter_age_18_25 + alter_age_25_35 + alter_age_35_45 +
+    alter_age_45_55 + alter_age_55_65 + alter_age_65_100),
+    se = sd(alter_age_0_18 + alter_age_18_25 + alter_age_25_35 + alter_age_35_45 +
+    alter_age_45_55 + alter_age_55_65 + alter_age_65_100) / n(),
+    pca = mean(PC1)) 
+
+
+raw_reported_contact %>% 
+  ggplot(aes(x = -pca, y = raw_contact, ymin = raw_contact - 2*se, ymax = raw_contact + 2*se)) + 
+  geom_pointrange() + 
+  theme_cowplot() + 
+  geom_smooth(method = "lm", se = F) + 
+  stat_cor(method = "pearson", color = "blue", size = 4, label.x = 0, label.y = 4, cor.coef.name = "R") + 
+  labs(x = "Monthly average PC1 of mobility data",
+       y = "Monthly average reported contacts (BICS, raw)",
+       title = "Correlation between reported contacts and mobility signals")
+```
+
+```{r}
+## California raw estimates 
+combined_data_monthly <- combined_data %>%
+# filter(month %in% c(as_date("2020-04-01"), "2020-05-01", "2020-06-01", "2020-09-01", "2020-12-01", "2021-02-01", "2021-05-01")) %>% 
+  group_by(month, state) %>%
+  filter(n() > 10) %>% 
+  summarise(eigenvalue_ratio = mean(eigenvalue_ratio),
+    pca = mean(PC1)) 
+
+
+combined_data_monthly %>% 
+  ggplot(aes(x = -pca, y = eigenvalue_ratio)) + 
+  geom_point() + 
+  theme_cowplot() + 
+  geom_smooth(method = "lm", se = F) + 
+  stat_cor(method = "pearson", color = "blue", size = 4, label.x = 0, cor.coef.name = "R") + 
+  labs(x = "Monthly average PC1",
+       y = "Eigenvalue Ratio",
+       title = "Correlation between contact intensity and mobility indicators")
+```
+
+
+```{r}
+## set working directory to read in draws
+predictions <- list.files(path = here("data", "predictions"), pattern = ".rds", full.names = T) %>%
+  map_dfr(read_rds)
+
+
+## summary statistics predictions
+summary_statistics_mobility <- predictions %>%
+  bind_rows() %>%
+  ungroup() %>%
+  filter(!is.na(.draw)) %>%
+  mutate(date = as_date("2020-04-11") + day_std - 1) %>%
+  mutate(month = floor_date(date, "months")) %>%
+  mutate(state = state)
+
+## calculate R0
+summary_statistics_mobility <- summary_statistics_mobility %>%
+  mutate(R0 = leading_eigenvalue / prepandemic_eigenvalue * baseline_R0) %>%
+  mutate(eigenvalue_ratio = leading_eigenvalue / prepandemic_eigenvalue)
+
+daily_predictions_mobility <- summary_statistics_mobility %>%
+  group_by(date, month, state) %>%
+  summarize(
+    lower = quantile(eigenvalue_ratio, .1),
+    upper = quantile(eigenvalue_ratio, .9),
+    eigenvalue_ratio = mean(eigenvalue_ratio)
+  )
+
+
+daily_predictions_mobility <- daily_predictions_mobility %>% 
+  left_join(mobility_data) 
+
+
+## California raw estimates 
+combined_data_monthly <- daily_predictions_mobility %>%
+ #  filter(month %in% c(as_date("2020-04-01"), "2020-05-01", "2020-06-01", "2020-09-01", "2020-12-01", "2021-02-01", "2021-05-01")) %>% 
+  group_by(month) %>%
+  filter(n() > 10) %>% 
+  summarise(eigenvalue_ratio = mean(eigenvalue_ratio),
+    pca = mean(PC1)) 
+
+
+combined_data_monthly %>% 
+  ggplot(aes(x = -pca, y = eigenvalue_ratio)) + 
+  geom_point() + 
+  theme_cowplot() + 
+  geom_smooth(method = "lm", se = F) + 
+  stat_cor(method = "pearson", color = "blue", size = 4, label.x = 0, cor.coef.name = "R") + 
+  labs(x = "Monthly average PC1",
+       y = "Eigenvalue Ratio",
+       title = "Correlation between contact intensity and mobility indicators")
+```
+
+
+
+```{r}
+## contact matrices predictions
+contact_matrices_predictions <- predictions %>%
+  bind_rows() %>%
+  ungroup() %>%
+  filter(is.na(.draw)) %>%
+  mutate(date = as_date("2020-04-11") + day_std - 1) %>%
+  mutate(month = floor_date(date, "months"))
+
+
+total_contact_predictions <- contact_matrices_predictions %>%
+  mutate(ego_age = .ego_age) %>%
+  left_join(acs_state_symmetry, by = c("state", "ego_age")) %>%
+  group_by(state, date) %>%
+  summarize(
+    total_contact = sum(contacts * prop, na.rm = T),
+    lower = sum(lower * prop, na.rm = T),
+    upper = sum(upper * prop, na.rm = T)
+  ) %>%
+  ungroup() %>%
+  mutate(weekday = is_weekday(lubridate::as_date(date) - 1)) %>%
+  mutate(date = floor_date(as_date(date), "month")) %>%
+  group_by(state, date) %>%
+  summarize(
+    total_contact = mean(total_contact),
+    lower = mean(lower),
+    upper = mean(upper)
+  )
+
+
+total_contact_predictions <- total_contact_predictions %>% 
+  left_join(mobility_data)
+
+
+total_contact_predictions %>% 
+  ggplot(aes(y = total_contact, x = -rolling_pca_3wks)) + 
+  geom_point() + 
+  theme_cowplot() + 
+  geom_smooth(method = "lm") + 
+  stat_cor(method = "pearson", color = "blue", size = 4, label.x = .7, cor.coef.name = "R", aes(label = ..r.label..)) + 
+  facet_geo(~state) + 
+  labs(title = "Correlation between daily MRP estimates (no mobility) and Google Mobility Indicators",
+       x = "Rolling 3-week Mobility PC1",
+       y = "Total Contacts")
+```
+
+

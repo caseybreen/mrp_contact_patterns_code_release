@@ -19,7 +19,7 @@ source(here("code", "helpers.R"))
 
 ```{r}
 ## set working directory to read in draws
-predictions <- list.files(path = here("data", "predictions"), pattern = ".rds", full.names = T) %>%
+predictions <- list.files(path = here("data", "predictions_no_mobility"), pattern = ".rds", full.names = T) %>%
   map_dfr(read_rds)
 
 ## contact matrices predictions
@@ -224,7 +224,7 @@ al_mrp <- contact_matrices_predictions %>%
 
 raw_vs_modeled_plot <- cowplot::plot_grid(ca_mrp, al_mrp, labels = "auto", nrow = 2)
 
-ggsave(plot = raw_vs_modeled_plot, height = 12, width = 14, file = here("figures", "raw_vs_modeled_plot.png"))
+ggsave(plot = raw_vs_modeled_plot, height = 12, width = 14, file = here("figures", "figures_no_mobility", "raw_vs_modeled_plot.png"))
 ```
 
 ## Fig-2: Contact Matrices
@@ -272,7 +272,7 @@ for (month_i in months) {
       y = "Alter age"
     )
 
-  ggsave(plot = state_level_mixing_matrices_symmetrical, height = 10, width = 13, file = here("figures", glue("state_level_mixing_matrices_symmetrical{month_i}.png")))
+  ggsave(plot = state_level_mixing_matrices_symmetrical, height = 10, width = 13, file = here("figures", "figures_no_mobility", glue("state_level_mixing_matrices_symmetrical{month_i}.png")))
 }
 ```
 
@@ -314,7 +314,7 @@ eigenvalue_plot_ribbon_month <- monthly_estimates_eigenvalue %>%
   scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
   theme(panel.spacing.x = unit(10, "mm"))
 
-ggsave(plot = eigenvalue_plot_ribbon_month, height = 12, width = 18, file = here("figures", "eigenvalue_ratio_state_plot.png"))
+ggsave(plot = eigenvalue_plot_ribbon_month, height = 12, width = 18, file = here("figures", "figures_no_mobility", "eigenvalue_ratio_state_plot.png"))
 ```
 
 
@@ -363,12 +363,12 @@ total_contacts_plot <- total_contact_predictions %>%
   scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
   theme(panel.spacing.x = unit(10, "mm"))
 
-ggsave(plot = total_contacts_plot, height = 12, width = 18, file = here("figures", "total_contact_state_plot.png"))
+ggsave(plot = total_contacts_plot, height = 12, width = 18, file = here("figures", "figures_no_mobility", "total_contact_state_plot.png"))
 ```
 
 
 
-## Appendix: R0 over time 
+## Appnedix: R0 over time 
 
 ```{r}
 monthly_estimates_R0 <- summary_statistics %>%
@@ -403,7 +403,7 @@ R0_plot_ribbon_month <- monthly_estimates_R0 %>%
   scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
   theme(panel.spacing.x = unit(10, "mm"))
 
-ggsave(plot = R0_plot_ribbon_month, height = 12, width = 18, file = here("figures", "R0_state_plot.png"))
+ggsave(plot = R0_plot_ribbon_month, height = 12, width = 18, file = here("figures", "figures_no_mobility", "R0_state_plot.png"))
 ```
 
 ## Fig-4: Reproductive Values
@@ -453,7 +453,7 @@ reproductive_values <- example_state_left %>%
   facet_wrap(~ as_date(month))
 
 ## save relative reproductive values plot 
-ggsave(plot = reproductive_values, height = 7, width = 17, file = here("figures", "reproductive_values_plot.png"))
+ggsave(plot = reproductive_values, height = 7, width = 17, file = here("figures", "figures_no_mobility", "reproductive_values_plot.png"))
 ```
 
 ## Appendix: Q index plot 
@@ -517,7 +517,7 @@ q_index_association_R0 <- q0_data %>%
 q_index_plots <- cowplot::plot_grid(q_index_over_time, q_index_association_R0, labels = "auto")
 
 
-ggsave(plot = q_index_plots, height = 7, width = 14, file = here("figures", "q_index_plot.png"))
+ggsave(plot = q_index_plots, height = 7, width = 14, file = here("figures", "figures_no_mobility", "q_index_plot.png"))
 ```
 
 ## CA mobility and predictions plot 
@@ -648,12 +648,8 @@ mid_row <- plot_grid(raw_reported_contact, R0_plot_ribbon_month_ca, labels = c("
 
 ca_plot <- cowplot::plot_grid(bottom_row, mid_row, ca_plot, labels = c("", "", "e"), ncol = 1)
 
-ggsave(plot = ca_plot, height = 18, width = 14, file = here("figures", "ca_plot.png"))
+ggsave(plot = ca_plot, height = 18, width = 14, file = here("figures", "figures_no_mobility", "ca_plot.png"))
 ```
-
-
-
-
 
 ## Tables and numbers reported in text 
 

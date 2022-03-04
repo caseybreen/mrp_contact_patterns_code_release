@@ -52,7 +52,7 @@ google_pca_data <- read_rds(file=here('data', 'intermediate', 'google_mobility_p
   select(date, state = state, rolling_pca_3wks)
 
 ## Non-Household Model
-nonhh_model <- read_rds(file = here('data', 'models', 'nonhh_model.rds'))
+nonhh_model <- read_rds(file = here('data', 'models', 'nonhh_model_no_mobility.rds'))
 
 ## Household Model 
 hh_model <- read_rds(file = here('data', 'models', 'hh_model.rds'))
@@ -124,7 +124,7 @@ make_predictions <- function(day, nonhh_model = nonhh_model, hh_model = hh_model
   newList <- list(eigenvalue_df, contact_df)
   
   ## write out and save predictions 
-  write_rds(x = newList, file = here('data', 'predictions', paste0('prediction_day', day, ".rds")))
+  write_rds(x = newList, file = here('data', 'predictions_no_mobility', paste0('prediction_day', day, ".rds")))
 
   ## print out day to keep track 
   cat(day)

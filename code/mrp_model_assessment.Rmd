@@ -1,0 +1,186 @@
+---
+title: "Fit MRT Models with Mobility Data"
+author: Casey Breen
+---
+
+## Summary
+
+This notebook contains code to fit two models: one model to estimate non-household contacts and one to model to estimate household contacts.
+
+```{r}
+## library here package 
+library(here)
+## Load helper functions and library all packages used for analysis 
+source(here("code", "helpers.R"))
+```
+
+## read in data for model 
+
+```{r}
+## prepared for model  
+df_formodel <- read_rds(here('data', 'input', 'bics_data_waves_1-6.rds')) 
+
+## top code total number of reported contacts at 30 
+top_code <- function(x) {
+  x <- case_when(
+    x > 30 ~ 30,
+    TRUE ~ x
+  )
+}
+
+## topcode data.frame 
+df_formodel_topcode <- df_formodel %>%
+  mutate(across(c(starts_with("alter_age")), top_code))
+
+df_formodel_topcode <- df_formodel_topcode %>% 
+  filter(wave != 5)
+  
+```
+
+
+
+
+```{r}
+df_formodel_test <- df_formodel %>% 
+  filter(wave == 5)
+
+predicted_draws <- add_predicted_draws(newdata = df_formodel_test, object = nonhh_model, ndraws = 2000, allow_new_levels = T) %>% 
+    mutate(numcc_predict = .prediction) %>% 
+    ungroup() %>% 
+    select(rid, state, agecat, gender, hhsize, race, weekday, day_std, .draw, numcc_predict, .category)
+
+predictions_mobility <- predicted_draws %>% 
+  group_by(rid, category = .category) %>% 
+  summarize(predict = mean(numcc_predict))
+
+df_formodel_test <- df_formodel_test %>% 
+  select(rid, alterage018 = alter_age_0_18,
+         alterage1825 = alter_age_18_25,
+         alterage2535 = alter_age_25_35,
+         alterage3545 = alter_age_35_45,
+         alterage4555 = alter_age_45_55,
+         alterage5565 = alter_age_55_65,
+         alterage65100 = alter_age_65_100) %>% 
+  pivot_longer(-rid) %>% 
+  rename(category = name) %>% 
+  left_join(predictions_mobility) 
+
+df_formodel_test %>% 
+  summarize(mse = mean((value - predict)^2), error = mean(value - predict))
+```
+
+```{r}
+df_formodel_test <- df_formodel %>% 
+  filter(wave == 5)
+
+predicted_draws <- add_predicted_draws(newdata = df_formodel_test, object = nonhh_model_no_mobility, ndraws = 2000, allow_new_levels = T) %>%
+    mutate(numcc_predict = .prediction) %>% 
+    ungroup() %>% 
+    select(rid, state, agecat, gender, hhsize, race, weekday, day_std, .draw, numcc_predict, .category)
+
+predictions_nomobility <- predicted_draws %>% 
+  group_by(rid, category = .category) %>% 
+  summarize(predict = mean(numcc_predict))
+
+df_formodel_test <- df_formodel_test %>% 
+  select(rid, alterage018 = alter_age_0_18,
+         alterage1825 = alter_age_18_25,
+         alterage2535 = alter_age_25_35,
+         alterage3545 = alter_age_35_45,
+         alterage4555 = alter_age_45_55,
+         alterage5565 = alter_age_55_65,
+         alterage65100 = alter_age_65_100) %>% 
+  pivot_longer(-rid) %>% 
+  rename(category = name) %>% 
+  left_join(predictions_nomobility) 
+
+df_formodel_test %>% 
+  summarize(mse = mean((value - predict)^2), error = mean(value - predict))
+```
+
+
+```{r}
+df_formodel_test <- df_formodel %>% 
+  filter(wave == 5)
+
+make_predictions <- predictions_mobility %>% 
+  left_join(predictions, by = c("rid", "category"))
+
+df_formodel_test <- df_formodel_test %>% 
+  select(rid, alterage018 = alter_age_0_18,
+         alterage1825 = alter_age_18_25,
+         alterage2535 = alter_age_25_35,
+         alterage3545 = alter_age_35_45,
+         alterage4555 = alter_age_45_55,
+         alterage5565 = alter_age_55_65,
+         alterage65100 = alter_age_65_100) %>% 
+  pivot_longer(-rid) %>% 
+  rename(category = name) %>% 
+  left_join(make_predictions)
+
+
+df_formodel_test %>% 
+  mutate(error_mobility = (value - predict.x)^2, 
+         mobility = (value - predict.y)^2) %>% 
+  summarize(mean_diff = mean(error_mobility - mobility),
+            se_diff = sd(error_mobility - mobility)/sqrt(n()),
+            ) %>% 
+  mutate(t = mean_diff/se_diff)
+```
+
+
+
+
+
+```{r}
+## Run main model non-hh model for paper 
+
+
+## mobility + monthly national cubic + state-level hierarchical cubic term 
+## Total execution time: 5346.0 seconds.
+nonhh_model <- brm(
+  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    weekday + 
+    agecat:gender + 
+    rolling_pca_3wks + ## mobility data 
+    poly(day_std, 3) + ## national polynomial trend 
+    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode,
+  chains = 4,
+  cores = 16,
+  iter = 4000)
+
+write_rds(nonhh_model, file = here('data', 'models', 'nonhh_model_holdout_wave5.rds'))
+
+## Run main model non-hh without mobility data 
+
+
+## mobility + monthly national cubic + state-level hierarchical cubic term 
+## Total execution time: 5346.0 seconds.
+nonhh_model_no_mobility <- brm(
+  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    weekday + 
+    agecat:gender + 
+    poly(day_std, 3) + ## national polynomial trend 
+    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode,
+  chains = 4,
+  cores = 16,
+  iter = 4000)
+
+write_rds(nonhh_model_no_mobility, file = here('data', 'models', 'nonhh_model_no_mobility_holdout_wave5.rds'))
+```
+
+
