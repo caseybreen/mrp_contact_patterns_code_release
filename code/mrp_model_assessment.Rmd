@@ -36,21 +36,21 @@ df_formodel_topcode <- df_formodel %>%
 ## read in data for model 
 
 ```{r}
-waves <- 2:5
+waves <- c(2:5)
 results <- list()
 
-for (wave in waves){
+for (i in waves){
   
   ## create test data 
   test_wave <- df_formodel_topcode %>% 
-    filter(wave == wave)
+    filter(wave == i)
   
   ## read in models 
-  model_mobility <- read_rds(file = here('data', 'models', glue('nonhh_model_holdout_wave{wave}.rds')))
-  model_baseline <- read_rds(file = here('data', 'models', glue('nonhh_model_no_mobility_holdout_wave{wave}.rds')))
+  model_mobility <- read_rds(file = here('data', 'models', glue('nonhh_model_holdout_wave{i}.rds')))
+  model_baseline <- read_rds(file = here('data', 'models', glue('nonhh_model_no_mobility_holdout_wave{i}.rds')))
   
   ## predictions for mobility data 
-  predicted_draws_mobility <- add_predicted_draws(newdata = test_wave, object = model_mobility, ndraws = 500, allow_new_levels = T) %>%
+  predicted_draws_mobility <- add_predicted_draws(newdata = test_wave, object = model_mobility, ndraws = 3000, allow_new_levels = T) %>%
     mutate(numcc_predict = .prediction) %>% 
     ungroup() %>% 
     select(rid, state, agecat, gender, hhsize, race, weekday, day_std, .draw, numcc_predict, .category)
@@ -64,7 +64,7 @@ for (wave in waves){
   rm(predicted_draws_mobility)
   
   ## predicted draws baseline 
-  predicted_draws_baseline <- add_predicted_draws(newdata = test_wave, object = model_baseline, ndraws = 500, allow_new_levels = T) %>%
+  predicted_draws_baseline <- add_predicted_draws(newdata = test_wave, object = model_baseline, ndraws = 3000, allow_new_levels = T) %>%
     mutate(numcc_predict = .prediction) %>% 
     ungroup() %>% 
     select(rid, state, agecat, gender, hhsize, race, weekday, day_std, .draw, numcc_predict, .category)
@@ -81,7 +81,7 @@ for (wave in waves){
     left_join(predictions_baseline, by = c("rid", "category"))
   
   ## combine into one data.frame 
-  test_wave <- test_wave %>% 
+  test_wave_long <- test_wave %>% 
     select(rid, alterage018 = alter_age_0_18,
            alterage1825 = alter_age_18_25,
            alterage2535 = alter_age_25_35,
@@ -94,7 +94,7 @@ for (wave in waves){
     left_join(make_predictions)
   
   ## calculate test wave 
-  mse_error <- test_wave %>% 
+  mse_error <- test_wave_long %>% 
     mutate(error_mobility = (value - predict_mobility)^2, 
            error_baseline = (value - predict_baseline)^2) %>% 
     summarize(mse_baseline = mean(error_baseline),
@@ -102,31 +102,33 @@ for (wave in waves){
               mean_diff = mean(error_baseline - error_mobility),
               se_diff = sd(error_baseline - error_mobility)/sqrt(n())) %>% 
     mutate(t_stat = mean_diff/se_diff,
-           wave = wave)
+           wave = i)
   
   ## add mse to results 
-  results[[wave]] <- mse_error 
+  results[[i]] <- mse_error 
   
   ## print
-  cat("Finished with wave ", wave)
+  cat("Finished with wave ", i)
   
   gc()
   
 }
 
 
-bind_rows(results)
-
-
+bind_rows(results) %>% 
+  knitr::kable(format = "latex", digits = 2)
 
 ```
 
 
-
-
-
-
-
+```{r}
+bind_rows(results) %>% 
+  ggplot(aes(x = wave, y = mean_diff, ymin = mean_diff - 2*se_diff, ymax = mean_diff + 2*se_diff)) + 
+  geom_pointrange() + 
+  theme_cowplot() +
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  labs(y = "MSE Baseline - MSE Mobility")
+```
 
 
 
@@ -134,6 +136,8 @@ bind_rows(results)
 ```{r}
 ## Run main model non-hh model for paper 
 
+df_formodel_topcode <- df_formodel_topcode %>% 
+  filter(wave != 6)
 
 ## mobility + monthly national cubic + state-level hierarchical cubic term 
 ## Total execution time: 5346.0 seconds.
@@ -155,7 +159,7 @@ nonhh_model <- brm(
   cores = 16,
   iter = 4000)
 
-write_rds(nonhh_model, file = here('data', 'models', 'nonhh_model_holdout_wave5.rds'))
+write_rds(nonhh_model, file = here('data', 'models', 'nonhh_model_holdout_wave6.rds'))
 
 ## Run main model non-hh without mobility data 
 
@@ -179,7 +183,7 @@ nonhh_model_no_mobility <- brm(
   cores = 16,
   iter = 4000)
 
-write_rds(nonhh_model_no_mobility, file = here('data', 'models', 'nonhh_model_no_mobility_holdout_wave5.rds'))
+write_rds(nonhh_model_no_mobility, file = here('data', 'models', 'nonhh_model_no_mobility_holdout_wave6.rds'))
 ```
 
 

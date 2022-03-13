@@ -300,15 +300,17 @@ eigenvalue_plot_ribbon_month <- monthly_estimates_eigenvalue %>%
   geom_ribbon(fill = "grey80") +
   geom_point() +
   geom_line() +
-  geom_hline(yintercept = 1, linetype = "dashed", col = "black") +
+  geom_hline(yintercept = 1, col = "black") +
+  geom_vline(xintercept = as_date("2020-07-01"), linetype = "dashed", col = "grey25") +
   theme_cowplot() +
   panel_border() +
   background_grid() +
+  scale_y_continuous(breaks = c(0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.4)) + 
   facet_geo(~state) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(
-    x = "Date",
-    y = "Eigenvalue Ratio",
+    x = "",
+    y = "Relative Contact Intensity Index",
     title = ""
   ) +
   scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
@@ -434,6 +436,11 @@ example_state_left <- left_eigenvector %>%
 
 ## plot reproductive numbers 
 reproductive_values <- example_state_left %>%
+  mutate(month_str = case_when(
+    month == as_date("2020-04-01") ~ "April 2020",
+    month == as_date("2021-01-01") ~ "January 2021",
+    month == as_date("2021-05-01") ~ "May 2021"
+  )) %>% 
   ggplot(aes(
     x = agecat,
     y = left_eigenvector_mean,
@@ -450,10 +457,13 @@ reproductive_values <- example_state_left %>%
     x = "Age Group",
     y = ""
   ) +
-  facet_wrap(~ as_date(month))
+  facet_wrap(~month_str) + 
+  theme(strip.text.x = element_text(size = 20))
+
+
 
 ## save relative reproductive values plot 
-ggsave(plot = reproductive_values, height = 7, width = 17, file = here("figures", "reproductive_values_plot.png"))
+ggsave(plot = reproductive_values, height = 5, width = 14, file = here("figures", "reproductive_values_plot.png"))
 ```
 
 ## Appendix: Q index plot 
@@ -550,7 +560,7 @@ ca_plot <- eigenvalue_df %>%
   ggsci::scale_color_lancet() +
   labs(
     x = "Date",
-    y = "Eigenvalue Ratio",
+    y = "Relative Contact Intensity Index",
     title = "Daily Predictions"
   ) +
   theme(legend.position = "bottom", legend.title = element_blank()) +
@@ -652,6 +662,20 @@ ggsave(plot = ca_plot, height = 18, width = 14, file = here("figures", "ca_plot.
 ```
 
 
+## relative contact index variance 
+
+```{r}
+contact_intensity_variation <- monthly_estimates_eigenvalue %>% 
+  group_by(month) %>% 
+  summarize(sd = sd(eigenvalue_ratio)) %>% 
+  ggplot(aes(x = month, y = sd)) + 
+  geom_point() + 
+  geom_line() + 
+  theme_cowplot() + 
+  labs(x = "", y = "Contact Intensity: Standard Deviation")
+
+ggsave(plot = contact_intensity_variation, height = 5, width = 8, file = here("figures", "contact_intensity_sd.png"))
+```
 
 
 
@@ -676,6 +700,31 @@ monthly_estimates_eigenvalue %>%
   select(month, state, eigenvalue_ratio) %>% 
   pivot_wider(names_from = state, values_from = eigenvalue_ratio) %>% 
   mutate(diff = ((IA / WA)-1)*100)
+```
+
+
+```{r}
+monthly_estimates_eigenvalue %>% 
+  filter(month == as_date("2020-07-01")) %>% 
+  mutate(national_avg = mean(eigenvalue_ratio),
+         diff = eigenvalue_ratio / national_avg) %>% 
+  filter(state %in% c("WA", "SD")) %>% 
+  ungroup() %>% 
+  group_by(state) %>% 
+  summarize(mean(diff))
+
+```
+
+```{r}
+monthly_estimates_eigenvalue %>% 
+  filter(state %in% c("WA", "SD")) %>% 
+  group_by(month, state) %>% 
+  summarize(eigenvalue_ratio = mean(eigenvalue_ratio)) %>% 
+  pivot_wider(names_from = state, values_from = eigenvalue_ratio) %>% 
+  summarize(diff = SD/WA) %>% 
+  ggplot(aes(x = month, y = diff)) + 
+  geom_line() +
+  ylim(0.5, 2)
 ```
 
 
