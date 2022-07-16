@@ -519,7 +519,30 @@ q_index_association_R0 <- q0_data %>%
 q_index_plots <- cowplot::plot_grid(q_index_over_time, q_index_association_R0, labels = "auto")
 
 
+q_index_state_plot <- q0_data %>%
+  # group_by(month) %>%
+  ggplot(aes(x = month, y = q0)) +
+  geom_point() +
+  geom_line() + 
+  labs(
+    y = "q-index (Assortativity)",
+    x = ""
+  ) + 
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
+  theme_cowplot() +
+  theme(panel.spacing.x = unit(12, "mm"),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) + 
+  panel_border() +
+  background_grid() +
+  facet_geo(~state) + 
+  theme(legend.position = "bottom", legend.title = element_blank())
+
+
+
 ggsave(plot = q_index_plots, height = 7, width = 14, file = here("figures", "figures_no_mobility", "q_index_plot.png"))
+
+## state-level plots 
+ggsave(plot = q_index_state_plot, height = 12, width = 18, file = here("figures", "figures_no_mobility", "q_index_plot_state.png"))
 ```
 
 ## CA mobility and predictions plot 

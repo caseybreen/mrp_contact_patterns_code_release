@@ -110,6 +110,11 @@ mobility_model3_loo <- loo(mobility_model3,
                            draws = NULL,
                            cores = getOption("mc.cores", 1),
                            moment_match = T)
+
+npi_model4_loo <- loo(nonhh_model_stringency,
+                           ndraws = 1000,
+                           draws = NULL,
+                           cores = getOption("mc.cores", 1))
 ```
 
 

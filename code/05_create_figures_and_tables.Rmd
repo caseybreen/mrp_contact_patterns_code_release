@@ -232,6 +232,49 @@ ggsave(plot = raw_vs_modeled_plot, height = 12, width = 14, file = here("figures
 Plot contact matrix for each month 
 
 ```{r}
+## Two States: Washington and South Dakota
+
+state_level_matrices_wa_sd <- contact_matrices_predictions %>%
+  mutate(month = lubridate::format_ISO8601(month, precision = "ym")) %>%
+  filter(month == "2020-07" & state %in% c("WA", "SD")) %>%
+  mutate(state = case_when(
+    state == "SD" ~ "South Dakota",
+    state == "WA" ~ "Washington"
+  )) %>% 
+  group_by(month, state, .ego_age, .alter_age) %>%
+  summarize(
+    sym_avg_per_ego = mean(contacts),
+    lower = mean(lower),
+    upper = mean(upper)
+  ) %>%
+  ggplot() +
+  geom_tile(aes(x = .ego_age, y = .alter_age, fill = sym_avg_per_ego)) +
+  # facet_grid(ego_sex ~ alter_sex) +
+  coord_equal() +
+  # viridis::scale_fill_viridis(name = str_wrap("Contacts per respondent", width = 10)) +
+  scale_fill_gradientn(
+    colors = viridis::viridis_pal()(9),
+    # limits = c(0, 4.41),
+    na.value = "#FDE725FF",
+    name = str_wrap("Contacts per respondent", width = 10)
+  ) +
+  facet_wrap(~state) +
+  theme_minimal(base_size = 20) +
+  theme(
+    axis.text.x = element_text(angle = 90),
+    plot.title = element_text(size = 22),
+    panel.spacing.x  = unit(5, "lines")) +
+  labs(
+    title = "State-Level Contact Matrices (July 2020)",
+    x = "Ego age",
+    y = "Alter age"
+  )
+
+
+## save plot 
+ggsave(plot = state_level_matrices_wa_sd, height = 6, width = 12, file = here("figures", "state_level_matrices_wa_sd.png"))
+
+## loop over all states 
 months <- contact_matrices_predictions %>%
   mutate(month = lubridate::format_ISO8601(month, precision = "ym")) %>%
   distinct(month) %>%
@@ -460,8 +503,6 @@ reproductive_values <- example_state_left %>%
   facet_wrap(~month_str) + 
   theme(strip.text.x = element_text(size = 20))
 
-
-
 ## save relative reproductive values plot 
 ggsave(plot = reproductive_values, height = 5, width = 14, file = here("figures", "reproductive_values_plot.png"))
 ```
@@ -479,7 +520,7 @@ q0_data <- summary_statistics %>%
     lower = quantile(R0, .1),
     upper = quantile(R0, .9),
     R0 = mean(abs(R0)),
-    leading_eigenvalue = mean(leading_eigenvalue),
+    eigenvalue_ratio = mean(eigenvalue_ratio),
     lower_q0 = quantile(abs(q_index), .1),
     upper_q0 = quantile(abs(q_index), .9),
     q0 = mean(abs(q_index))
@@ -489,7 +530,7 @@ q0_data <- summary_statistics %>%
     lower = mean(lower),
     upper = mean(upper),
     R0 = mean(R0),
-    leading_eigenvalue = mean(leading_eigenvalue),
+    eigenvalue_ratio = mean(eigenvalue_ratio),
     lower_q0 = quantile(abs(lower_q0), .1),
     upper_q0 = quantile(abs(upper_q0), .9),
     q0 = mean(q0)
@@ -505,7 +546,8 @@ q_index_over_time <- q0_data %>%
   labs(
     title = "Q-index Over Time (State Average)",
     y = "q-index"
-  )
+  ) + 
+  ylim(0.3, 0.5)
 
 ## plot association between q-index 
 q_index_association_R0 <- q0_data %>%
@@ -524,10 +566,31 @@ q_index_association_R0 <- q0_data %>%
     y = "R0"
   )
 
+
+q_index_state_plot <- q0_data %>%
+  # group_by(month) %>%
+  ggplot(aes(x = month, y = q0)) +
+  geom_point() +
+  geom_line() + 
+  labs(
+    y = "q-index (Assortativity)",
+    x = ""
+  ) + 
+  scale_x_date(date_breaks = "2 month", date_labels = "%b-%Y") +
+  theme_cowplot() +
+  theme(panel.spacing.x = unit(12, "mm"),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) + 
+  panel_border() +
+  background_grid() +
+  facet_geo(~state) + 
+  theme(legend.position = "bottom", legend.title = element_blank())
+
+## national plots 
 q_index_plots <- cowplot::plot_grid(q_index_over_time, q_index_association_R0, labels = "auto")
-
-
 ggsave(plot = q_index_plots, height = 7, width = 14, file = here("figures", "q_index_plot.png"))
+
+## state-level plots 
+ggsave(plot = q_index_state_plot, height = 12, width = 18, file = here("figures", "q_index_plot_state.pdf"))
 ```
 
 ## CA mobility and predictions plot 
@@ -719,7 +782,7 @@ monthly_estimates_eigenvalue %>%
 monthly_estimates_eigenvalue %>% 
   filter(state %in% c("WA", "SD")) %>% 
   group_by(month, state) %>% 
-  summarize(eigenvalue_ratio = mean(eigenvalue_ratio)) %>% 
+  summarize(eigenvalue_ratio = sd(eigenvalue_ratio)) %>% 
   pivot_wider(names_from = state, values_from = eigenvalue_ratio) %>% 
   summarize(diff = SD/WA) %>% 
   ggplot(aes(x = month, y = diff)) + 

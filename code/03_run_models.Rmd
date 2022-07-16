@@ -33,7 +33,34 @@ df_formodel_topcode <- df_formodel %>%
   mutate(across(c(starts_with("alter_age")), top_code))
 ```
 
-Run main model non-hh model for paper 
+Run main model non-hh model with Oxford Stringency Index for paper 
+
+```{r}
+## mobility + monthly national cubic + state-level hierarchical cubic term 
+## Total execution time: 5346.0 seconds.
+nonhh_model_stringency <- brm(
+  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    weekday + 
+    agecat:gender + 
+    stringency_index + ## mobility data 
+    poly(day_std, 3) + ## national polynomial trend 
+    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode,
+  chains = 4,
+  cores = 16,
+  iter = 4000)
+
+write_rds(nonhh_model_stringency, file = here('data', 'models', 'nonhh_model_stringency.rds'))
+```
+
+
+Run main model non-hh model with mobility for paper 
 
 ```{r}
 ## mobility + monthly national cubic + state-level hierarchical cubic term 

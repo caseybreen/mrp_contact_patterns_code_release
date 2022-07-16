@@ -1,0 +1,59 @@
+---
+title: "Non Pharmaceutical Interventions (Oxford)"
+output: html_notebook
+---
+
+## Summary 
+
+This script takes raw mobility mobility reports from Google (https://www.google.com/covid19/mobility/) creates a rolling 3 week averagr of the first principal component of the 7 measures. Specifically, 
+
+— Read in Google mobility reports data 
+— Perform multiple imputation to simulate missing values (missing bc of privacy concerns)
+— Calculate principal component decomposition
+— Calculate 3-week rolling average for each day X state combination 
+
+## Library function + helper code  
+
+```{r}
+## library here package
+library(here)
+
+## Load helper functions and library all packages used for analysis
+source(here("code", "helpers.R"))
+```
+
+
+
+```{r}
+## prepared for model  
+df_formodel <- read_rds(here('data', 'input', 'bics_data_waves_1-6.rds')) 
+
+
+npi_2020 <- fread(here("data/input/OxCGRT_withnotes_2020.csv")) %>% 
+  janitor::clean_names() %>% 
+  filter(country_name == "United States") %>% 
+  select(date, region_name, stringency_index) %>% 
+  filter(region_name != "") %>% 
+  mutate(date = lubridate::ymd(date))
+
+npi_2021 <- fread(here("data/input/OxCGRT_withnotes_2021.csv")) %>% 
+  janitor::clean_names() %>% 
+  filter(country_name == "United States") %>% 
+  select(date, region_name, stringency_index) %>% 
+  filter(region_name != "") %>% 
+  mutate(date = lubridate::ymd(date))
+  
+npi <- bind_rows(npi_2020, npi_2021) %>% 
+  mutate(state = state.abb[match(region_name, state.name)])
+
+df_formodel <- df_formodel %>% 
+  left_join(npi, by = c("state", "date")) 
+
+df_formodel %>% 
+  filter(is.na(stringency_index))
+
+df_formodel <- write_rds(df_formodel, here('data', 'input', 'bics_data_waves_1-6.rds')) 
+
+
+```
+
