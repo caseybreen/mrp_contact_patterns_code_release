@@ -37,8 +37,8 @@ Run main model non-hh model with Oxford Stringency Index for paper
 
 ```{r}
 ## mobility + monthly national cubic + state-level hierarchical cubic term 
-## Total execution time: 5346.0 seconds.
-nonhh_model_stringency <- brm(
+## Total execution time: 5346.0 seconds.†
+nonhh_model_gov_response_index <- brm(
   formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
     agecat +
     gender +
@@ -46,7 +46,7 @@ nonhh_model_stringency <- brm(
     race + 
     weekday + 
     agecat:gender + 
-    stringency_index + ## mobility data 
+    government_response_index + ## government response data 
     poly(day_std, 3) + ## national polynomial trend 
     (poly(day_std, 3) | state), ## state level pooled polynomial trend 
   family = 'negbinomial',
@@ -56,7 +56,7 @@ nonhh_model_stringency <- brm(
   cores = 16,
   iter = 4000)
 
-write_rds(nonhh_model_stringency, file = here('data', 'models', 'nonhh_model_stringency.rds'))
+write_rds(nonhh_model_stringency, file = here('data', 'models', 'nonhh_model_gov_response_index'))
 ```
 
 

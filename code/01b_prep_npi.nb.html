@@ -239,20 +239,78 @@ source(here(&quot;code&quot;, &quot;helpers.R&quot;))</code></pre>
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZGZfZm9ybW9kZWwgPC0gc2F2ZV9yZHMoZGZfZm9ybW9kZWwsIGhlcmUoJ2RhdGEnLCAnaW5wdXQnLCAnYmljc19kYXRhX3dhdmVzXzEtNi5yZHMnKSkgXG5cbmBgYCJ9 -->
-<pre class="r"><code>df_formodel &lt;- save_rds(df_formodel, here(&#39;data&#39;, &#39;input&#39;, &#39;bics_data_waves_1-6.rds&#39;)) 
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuXG5ucGlfMjAyMCA8LSByZWFkX2NzdihoZXJlKFwiZGF0YS9pbnB1dC9PeENHUlRfd2l0aG5vdGVzXzIwMjAuY3N2XCIpKSAlPiUgXG4gIGphbml0b3I6OmNsZWFuX25hbWVzKCkgJT4lIFxuICBmaWx0ZXIoY291bnRyeV9uYW1lID09IFwiVW5pdGVkIFN0YXRlc1wiKSAlPiUgXG4gIHNlbGVjdChkYXRlLCByZWdpb25fbmFtZSwgZ292ZXJubWVudF9yZXNwb25zZV9pbmRleCkgJT4lIFxuICBmaWx0ZXIocmVnaW9uX25hbWUgIT0gXCJcIikgJT4lIFxuICBtdXRhdGUoZGF0ZSA9IGx1YnJpZGF0ZTo6eW1kKGRhdGUpKVxuXG5gYGAifQ== -->
+<pre class="r"><code>
+npi_2020 &lt;- read_csv(here(&quot;data/input/OxCGRT_withnotes_2020.csv&quot;)) %&gt;% 
+  janitor::clean_names() %&gt;% 
+  filter(country_name == &quot;United States&quot;) %&gt;% 
+  select(date, region_name, government_response_index) %&gt;% 
+  filter(region_name != &quot;&quot;) %&gt;% 
+  mutate(date = lubridate::ymd(date))
 </code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiRXJyb3IgaW4gc2F2ZV9yZHMoZGZfZm9ybW9kZWwsIGhlcmUoXCJkYXRhXCIsIFwiaW5wdXRcIiwgXCJiaWNzX2RhdGFfd2F2ZXNfMS02LnJkc1wiKSkgOiBcbiAgY291bGQgbm90IGZpbmQgZnVuY3Rpb24gXCJzYXZlX3Jkc1wiXG4ifQ== -->
-<pre><code>Error in save_rds(df_formodel, here(&quot;data&quot;, &quot;input&quot;, &quot;bics_data_waves_1-6.rds&quot;)) : 
-  could not find function &quot;save_rds&quot;</code></pre>
+<!-- rnb-output-begin eyJkYXRhIjoiV2FybmluZzogT25lIG9yIG1vcmUgcGFyc2luZyBpc3N1ZXMsIHNlZSBgcHJvYmxlbXMoKWAgZm9yIGRldGFpbHNcbiJ9 -->
+<pre><code>Warning: One or more parsing issues, see `problems()` for details</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiUm93czogMTE0NTU4IENvbHVtbnM6IDg2XG7ilIDilIAgQ29sdW1uIHNwZWNpZmljYXRpb24g4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSAXG5EZWxpbWl0ZXI6IFwiLFwiXG5jaHIgKDMwKTogQ291bnRyeU5hbWUsIENvdW50cnlDb2RlLCBSZWdpb25OYW1lLCBSZWdpb25Db2RlLCBKdXJpc2RpY3Rpb24sIEMxX05vdGVzLCBDMl9Ob3RlcywgQzNfTm90ZXMsIEM0X05vdGVzLC4uLlxuZGJsICg1Myk6IERhdGUsIEMxX1NjaG9vbCBjbG9zaW5nLCBDMV9GbGFnLCBDMl9Xb3JrcGxhY2UgY2xvc2luZywgQzJfRmxhZywgQzNfQ2FuY2VsIHB1YmxpYyBldmVudHMsIEMzX0ZsYWcsIEM0X1IuLi5cbmxnbCAgKDMpOiBNMV9XaWxkY2FyZCwgVjJCX1ZhY2NpbmUgYWdlIGVsaWdpYmlsaXR5L2F2YWlsYWJpbGl0eSBhZ2UgZmxvb3IgKGdlbmVyYWwgcG9wdWxhdGlvbiBzdW1tYXJ5KSwgVjJDX1ZhY2NpLi4uXG5cbuKEuSBVc2UgYHNwZWMoKWAgdG8gcmV0cmlldmUgdGhlIGZ1bGwgY29sdW1uIHNwZWNpZmljYXRpb24gZm9yIHRoaXMgZGF0YS5cbuKEuSBTcGVjaWZ5IHRoZSBjb2x1bW4gdHlwZXMgb3Igc2V0IGBzaG93X2NvbF90eXBlcyA9IEZBTFNFYCB0byBxdWlldCB0aGlzIG1lc3NhZ2UuXG4ifQ== -->
+<pre><code>Rows: 114558 Columns: 86
+── Column specification ─────────────────────────────────────────────────────────────────────────────────────────────
+Delimiter: &quot;,&quot;
+chr (30): CountryName, CountryCode, RegionName, RegionCode, Jurisdiction, C1_Notes, C2_Notes, C3_Notes, C4_Notes,...
+dbl (53): Date, C1_School closing, C1_Flag, C2_Workplace closing, C2_Flag, C3_Cancel public events, C3_Flag, C4_R...
+lgl  (3): M1_Wildcard, V2B_Vaccine age eligibility/availability age floor (general population summary), V2C_Vacci...
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubnBpXzIwMjEgPC0gcmVhZF9jc3YoaGVyZShcImRhdGEvaW5wdXQvT3hDR1JUX3dpdGhub3Rlc18yMDIxLmNzdlwiKSkgJT4lIFxuICBqYW5pdG9yOjpjbGVhbl9uYW1lcygpICU+JSBcbiAgZmlsdGVyKGNvdW50cnlfbmFtZSA9PSBcIlVuaXRlZCBTdGF0ZXNcIikgJT4lIFxuICBzZWxlY3QoZGF0ZSwgcmVnaW9uX25hbWUsIGdvdmVybm1lbnRfcmVzcG9uc2VfaW5kZXgpICU+JSBcbiAgZmlsdGVyKHJlZ2lvbl9uYW1lICE9IFwiXCIpICU+JSBcbiAgbXV0YXRlKGRhdGUgPSBsdWJyaWRhdGU6OnltZChkYXRlKSlcbmBgYCJ9 -->
+<pre class="r"><code>npi_2021 &lt;- read_csv(here(&quot;data/input/OxCGRT_withnotes_2021.csv&quot;)) %&gt;% 
+  janitor::clean_names() %&gt;% 
+  filter(country_name == &quot;United States&quot;) %&gt;% 
+  select(date, region_name, government_response_index) %&gt;% 
+  filter(region_name != &quot;&quot;) %&gt;% 
+  mutate(date = lubridate::ymd(date))</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiUm93czogMTMwMzA1IENvbHVtbnM6IDg2XG7ilIDilIAgQ29sdW1uIHNwZWNpZmljYXRpb24g4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSAXG5EZWxpbWl0ZXI6IFwiLFwiXG5jaHIgKDMyKTogQ291bnRyeU5hbWUsIENvdW50cnlDb2RlLCBSZWdpb25OYW1lLCBSZWdpb25Db2RlLCBKdXJpc2RpY3Rpb24sIEMxX05vdGVzLCBDMl9Ob3RlcywgQzNfTm90ZXMsIEM0X05vdGVzLC4uLlxuZGJsICg1Myk6IERhdGUsIEMxX1NjaG9vbCBjbG9zaW5nLCBDMV9GbGFnLCBDMl9Xb3JrcGxhY2UgY2xvc2luZywgQzJfRmxhZywgQzNfQ2FuY2VsIHB1YmxpYyBldmVudHMsIEMzX0ZsYWcsIEM0X1IuLi5cbmxnbCAgKDEpOiBNMV9XaWxkY2FyZFxuXG7ihLkgVXNlIGBzcGVjKClgIHRvIHJldHJpZXZlIHRoZSBmdWxsIGNvbHVtbiBzcGVjaWZpY2F0aW9uIGZvciB0aGlzIGRhdGEuXG7ihLkgU3BlY2lmeSB0aGUgY29sdW1uIHR5cGVzIG9yIHNldCBgc2hvd19jb2xfdHlwZXMgPSBGQUxTRWAgdG8gcXVpZXQgdGhpcyBtZXNzYWdlLlxuIn0= -->
+<pre><code>Rows: 130305 Columns: 86
+── Column specification ─────────────────────────────────────────────────────────────────────────────────────────────
+Delimiter: &quot;,&quot;
+chr (32): CountryName, CountryCode, RegionName, RegionCode, Jurisdiction, C1_Notes, C2_Notes, C3_Notes, C4_Notes,...
+dbl (53): Date, C1_School closing, C1_Flag, C2_Workplace closing, C2_Flag, C3_Cancel public events, C3_Flag, C4_R...
+lgl  (1): M1_Wildcard
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuICBcbm5waSA8LSBiaW5kX3Jvd3MobnBpXzIwMjAsIG5waV8yMDIxKSAlPiUgXG4gIG11dGF0ZShzdGF0ZSA9IHN0YXRlLmFiYlttYXRjaChyZWdpb25fbmFtZSwgc3RhdGUubmFtZSldKVxuXG5kZl9mb3Jtb2RlbCA8LSBkZl9mb3Jtb2RlbCAlPiUgXG4gIGxlZnRfam9pbihucGksIGJ5ID0gYyhcInN0YXRlXCIsIFwiZGF0ZVwiKSkgXG5cbmRmX2Zvcm1vZGVsICU+JSBcbiAgZmlsdGVyKGlzLm5hKHN0cmluZ2VuY3lfaW5kZXgpKVxuYGBgIn0= -->
+<pre class="r"><code>  
+npi &lt;- bind_rows(npi_2020, npi_2021) %&gt;% 
+  mutate(state = state.abb[match(region_name, state.name)])
+
+df_formodel &lt;- df_formodel %&gt;% 
+  left_join(npi, by = c(&quot;state&quot;, &quot;date&quot;)) 
+
+df_formodel %&gt;% 
+  filter(is.na(stringency_index))</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiRXJyb3IgaW4gYGZpbHRlcigpYDpcbiEgUHJvYmxlbSB3aGlsZSBjb21wdXRpbmcgYC4uMSA9IGlzLm5hKHN0cmluZ2VuY3lfaW5kZXgpYC5cbkNhdXNlZCBieSBlcnJvcjpcbiEgb2JqZWN0ICdzdHJpbmdlbmN5X2luZGV4JyBub3QgZm91bmRcbkJhY2t0cmFjZTpcbiAxLiBkZl9mb3Jtb2RlbCAlPiUgZmlsdGVyKGlzLm5hKHN0cmluZ2VuY3lfaW5kZXgpKVxuIDMuIGRwbHlyOjo6ZmlsdGVyLmRhdGEuZnJhbWUoLiwgaXMubmEoc3RyaW5nZW5jeV9pbmRleCkpXG4gNC4gZHBseXI6OjpmaWx0ZXJfcm93cyguZGF0YSwgLi4uLCBjYWxsZXJfZW52ID0gY2FsbGVyX2VudigpKVxuIDUuIGRwbHlyOjo6ZmlsdGVyX2V2YWwoZG90cywgbWFzayA9IG1hc2ssIGVycm9yX2NhbGwgPSBlcnJvcl9jYWxsKVxuIDcuIG1hc2skZXZhbF9hbGxfZmlsdGVyKGRvdHMsIGVudl9maWx0ZXIpXG4ifQ== -->
+<pre><code>Error in `filter()`:
+! Problem while computing `..1 = is.na(stringency_index)`.
+Caused by error:
+! object &#39;stringency_index&#39; not found
+Backtrace:
+ 1. df_formodel %&gt;% filter(is.na(stringency_index))
+ 3. dplyr:::filter.data.frame(., is.na(stringency_index))
+ 4. dplyr:::filter_rows(.data, ..., caller_env = caller_env())
+ 5. dplyr:::filter_eval(dots, mask = mask, error_call = error_call)
+ 7. mask$eval_all_filter(dots, env_filter)</code></pre>
 <!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
 </div>
 
-<div id="rmd-source-code">LS0tCnRpdGxlOiAiTm9uIFBoYXJtYWNldXRpY2FsIEludGVydmVudGlvbnMgKE94Zm9yZCkiCm91dHB1dDogaHRtbF9ub3RlYm9vawotLS0KCiMjIFN1bW1hcnkgCgpUaGlzIHNjcmlwdCB0YWtlcyByYXcgbW9iaWxpdHkgbW9iaWxpdHkgcmVwb3J0cyBmcm9tIEdvb2dsZSAoaHR0cHM6Ly93d3cuZ29vZ2xlLmNvbS9jb3ZpZDE5L21vYmlsaXR5LykgY3JlYXRlcyBhIHJvbGxpbmcgMyB3ZWVrIGF2ZXJhZ3Igb2YgdGhlIGZpcnN0IHByaW5jaXBhbCBjb21wb25lbnQgb2YgdGhlIDcgbWVhc3VyZXMuIFNwZWNpZmljYWxseSwgCgrigJQgUmVhZCBpbiBHb29nbGUgbW9iaWxpdHkgcmVwb3J0cyBkYXRhIArigJQgUGVyZm9ybSBtdWx0aXBsZSBpbXB1dGF0aW9uIHRvIHNpbXVsYXRlIG1pc3NpbmcgdmFsdWVzIChtaXNzaW5nIGJjIG9mIHByaXZhY3kgY29uY2VybnMpCuKAlCBDYWxjdWxhdGUgcHJpbmNpcGFsIGNvbXBvbmVudCBkZWNvbXBvc2l0aW9uCuKAlCBDYWxjdWxhdGUgMy13ZWVrIHJvbGxpbmcgYXZlcmFnZSBmb3IgZWFjaCBkYXkgWCBzdGF0ZSBjb21iaW5hdGlvbiAKCiMjIExpYnJhcnkgZnVuY3Rpb24gKyBoZWxwZXIgY29kZSAgCgpgYGB7cn0KIyMgbGlicmFyeSBoZXJlIHBhY2thZ2UKbGlicmFyeShoZXJlKQoKIyMgTG9hZCBoZWxwZXIgZnVuY3Rpb25zIGFuZCBsaWJyYXJ5IGFsbCBwYWNrYWdlcyB1c2VkIGZvciBhbmFseXNpcwpzb3VyY2UoaGVyZSgiY29kZSIsICJoZWxwZXJzLlIiKSkKYGBgCgoKCmBgYHtyfQojIyBwcmVwYXJlZCBmb3IgbW9kZWwgIApkZl9mb3Jtb2RlbCA8LSByZWFkX3JkcyhoZXJlKCdkYXRhJywgJ2lucHV0JywgJ2JpY3NfZGF0YV93YXZlc18xLTYucmRzJykpIAoKCm5waV8yMDIwIDwtIGZyZWFkKGhlcmUoImRhdGEvaW5wdXQvT3hDR1JUX3dpdGhub3Rlc18yMDIwLmNzdiIpKSAlPiUgCiAgamFuaXRvcjo6Y2xlYW5fbmFtZXMoKSAlPiUgCiAgZmlsdGVyKGNvdW50cnlfbmFtZSA9PSAiVW5pdGVkIFN0YXRlcyIpICU+JSAKICBzZWxlY3QoZGF0ZSwgcmVnaW9uX25hbWUsIHN0cmluZ2VuY3lfaW5kZXgpICU+JSAKICBmaWx0ZXIocmVnaW9uX25hbWUgIT0gIiIpICU+JSAKICBtdXRhdGUoZGF0ZSA9IGx1YnJpZGF0ZTo6eW1kKGRhdGUpKQoKbnBpXzIwMjEgPC0gZnJlYWQoaGVyZSgiZGF0YS9pbnB1dC9PeENHUlRfd2l0aG5vdGVzXzIwMjEuY3N2IikpICU+JSAKICBqYW5pdG9yOjpjbGVhbl9uYW1lcygpICU+JSAKICBmaWx0ZXIoY291bnRyeV9uYW1lID09ICJVbml0ZWQgU3RhdGVzIikgJT4lIAogIHNlbGVjdChkYXRlLCByZWdpb25fbmFtZSwgc3RyaW5nZW5jeV9pbmRleCkgJT4lIAogIGZpbHRlcihyZWdpb25fbmFtZSAhPSAiIikgJT4lIAogIG11dGF0ZShkYXRlID0gbHVicmlkYXRlOjp5bWQoZGF0ZSkpCiAgCm5waSA8LSBiaW5kX3Jvd3MobnBpXzIwMjAsIG5waV8yMDIxKSAlPiUgCiAgbXV0YXRlKHN0YXRlID0gc3RhdGUuYWJiW21hdGNoKHJlZ2lvbl9uYW1lLCBzdGF0ZS5uYW1lKV0pCgpkZl9mb3Jtb2RlbCA8LSBkZl9mb3Jtb2RlbCAlPiUgCiAgbGVmdF9qb2luKG5waSwgYnkgPSBjKCJzdGF0ZSIsICJkYXRlIikpIAoKZGZfZm9ybW9kZWwgJT4lIAogIGZpbHRlcihpcy5uYShzdHJpbmdlbmN5X2luZGV4KSkKCmRmX2Zvcm1vZGVsIDwtIHdyaXRlX3JkcyhkZl9mb3Jtb2RlbCwgaGVyZSgnZGF0YScsICdpbnB1dCcsICdiaWNzX2RhdGFfd2F2ZXNfMS02LnJkcycpKSAKCgpgYGAKCg==</div>
+<div id="rmd-source-code">LS0tCnRpdGxlOiAiTm9uIFBoYXJtYWNldXRpY2FsIEludGVydmVudGlvbnMgKE94Zm9yZCkiCm91dHB1dDogaHRtbF9ub3RlYm9vawotLS0KCiMjIFN1bW1hcnkgCgpUaGlzIHNjcmlwdCB0YWtlcyByYXcgbW9iaWxpdHkgbW9iaWxpdHkgcmVwb3J0cyBmcm9tIEdvb2dsZSAoaHR0cHM6Ly93d3cuZ29vZ2xlLmNvbS9jb3ZpZDE5L21vYmlsaXR5LykgY3JlYXRlcyBhIHJvbGxpbmcgMyB3ZWVrIGF2ZXJhZ3Igb2YgdGhlIGZpcnN0IHByaW5jaXBhbCBjb21wb25lbnQgb2YgdGhlIDcgbWVhc3VyZXMuIFNwZWNpZmljYWxseSwgCgrigJQgUmVhZCBpbiBHb29nbGUgbW9iaWxpdHkgcmVwb3J0cyBkYXRhIArigJQgUGVyZm9ybSBtdWx0aXBsZSBpbXB1dGF0aW9uIHRvIHNpbXVsYXRlIG1pc3NpbmcgdmFsdWVzIChtaXNzaW5nIGJjIG9mIHByaXZhY3kgY29uY2VybnMpCuKAlCBDYWxjdWxhdGUgcHJpbmNpcGFsIGNvbXBvbmVudCBkZWNvbXBvc2l0aW9uCuKAlCBDYWxjdWxhdGUgMy13ZWVrIHJvbGxpbmcgYXZlcmFnZSBmb3IgZWFjaCBkYXkgWCBzdGF0ZSBjb21iaW5hdGlvbiAKCiMjIExpYnJhcnkgZnVuY3Rpb24gKyBoZWxwZXIgY29kZSAgCgpgYGB7cn0KIyMgbGlicmFyeSBoZXJlIHBhY2thZ2UKbGlicmFyeShoZXJlKQoKIyMgTG9hZCBoZWxwZXIgZnVuY3Rpb25zIGFuZCBsaWJyYXJ5IGFsbCBwYWNrYWdlcyB1c2VkIGZvciBhbmFseXNpcwpzb3VyY2UoaGVyZSgiY29kZSIsICJoZWxwZXJzLlIiKSkKYGBgCgoKCmBgYHtyfQojIyBwcmVwYXJlZCBmb3IgbW9kZWwgIApkZl9mb3Jtb2RlbCA8LSByZWFkX3JkcyhoZXJlKCdkYXRhJywgJ2lucHV0JywgJ2JpY3NfZGF0YV93YXZlc18xLTYucmRzJykpIAoKCm5waV8yMDIwIDwtIHJlYWRfY3N2KGhlcmUoImRhdGEvaW5wdXQvT3hDR1JUX3dpdGhub3Rlc18yMDIwLmNzdiIpKSAlPiUgCiAgamFuaXRvcjo6Y2xlYW5fbmFtZXMoKSAlPiUgCiAgZmlsdGVyKGNvdW50cnlfbmFtZSA9PSAiVW5pdGVkIFN0YXRlcyIpICU+JSAKICBzZWxlY3QoZGF0ZSwgcmVnaW9uX25hbWUsIGdvdmVybm1lbnRfcmVzcG9uc2VfaW5kZXgpICU+JSAKICBmaWx0ZXIocmVnaW9uX25hbWUgIT0gIiIpICU+JSAKICBtdXRhdGUoZGF0ZSA9IGx1YnJpZGF0ZTo6eW1kKGRhdGUpKQoKbnBpXzIwMjEgPC0gcmVhZF9jc3YoaGVyZSgiZGF0YS9pbnB1dC9PeENHUlRfd2l0aG5vdGVzXzIwMjEuY3N2IikpICU+JSAKICBqYW5pdG9yOjpjbGVhbl9uYW1lcygpICU+JSAKICBmaWx0ZXIoY291bnRyeV9uYW1lID09ICJVbml0ZWQgU3RhdGVzIikgJT4lIAogIHNlbGVjdChkYXRlLCByZWdpb25fbmFtZSwgZ292ZXJubWVudF9yZXNwb25zZV9pbmRleCkgJT4lIAogIGZpbHRlcihyZWdpb25fbmFtZSAhPSAiIikgJT4lIAogIG11dGF0ZShkYXRlID0gbHVicmlkYXRlOjp5bWQoZGF0ZSkpCiAgCm5waSA8LSBiaW5kX3Jvd3MobnBpXzIwMjAsIG5waV8yMDIxKSAlPiUgCiAgbXV0YXRlKHN0YXRlID0gc3RhdGUuYWJiW21hdGNoKHJlZ2lvbl9uYW1lLCBzdGF0ZS5uYW1lKV0pCgpkZl9mb3Jtb2RlbCA8LSBkZl9mb3Jtb2RlbCAlPiUgCiAgbGVmdF9qb2luKG5waSwgYnkgPSBjKCJzdGF0ZSIsICJkYXRlIikpIAoKCndyaXRlX3JkcyhkZl9mb3Jtb2RlbCwgaGVyZSgnZGF0YScsICdpbnB1dCcsICdiaWNzX2RhdGFfd2F2ZXNfMS02LnJkcycpKSAKCgpgYGAKCg==</div>
 
 
 
