@@ -11,7 +11,7 @@ library(here)
 ## Load helper functions and library all packages used for analysis 
 source(here("code", "helpers.R"))
 
-set.seed(1) 
+set.seed(2) 
 ```
 
 Read in data for model 
@@ -91,7 +91,56 @@ mobility_model3 <- brm(
   cores = 16,
 #  control = list(adapt_delta = 0.9), 
   iter = 4000)
+
+
+## Total execution time: 5346.0 seconds.
+mobility_model3 <- brm(
+  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    weekday + 
+    rolling_pca_3wks + ## mobility data
+   (poly(day_std, 3) | state) +  ## state level pooled polynomial trend 
+    poly(day_std, 3), ## national polynomial trend 
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode,
+  chains = 4,
+  cores = 16,
+#  control = list(adapt_delta = 0.9), 
+  iter = 4000)
+
+## 
+nonhh_model_stringency <- brm(
+  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    weekday + 
+    agecat:gender + 
+    stringency_index + ## mobility data 
+    poly(day_std, 3) + ## national polynomial trend 
+    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode,
+  chains = 4,
+  cores = 16,
+  iter = 4000)
+
+
 ```
+
+
+```{r}
+nonhh_model_stringency <- read_rds(file = here('data', 'models', 'nonhh_model_stringency.rds'))
+nonhh_model_no_mobility <- read_rds(file = here('data', 'models', 'nonhh_model_no_mobility.rds'))
+nonhh_model <- read_rds(file = here('data', 'models', 'nonhh_model.rds'))
+```
+
 
 Run models with different specifications for time trend
 ```{r}
@@ -115,13 +164,33 @@ npi_model4_loo <- loo(nonhh_model_stringency,
                            ndraws = 1000,
                            draws = NULL,
                            cores = getOption("mc.cores", 1))
-```
 
+no_npi_model5_loo <- loo(nonhh_model,
+                           ndraws = 1000,
+                           draws = NULL,
+                           cores = getOption("mc.cores", 1))
+
+
+no_npi_model6_loo <- loo(nonhh_model_no_mobility,
+                           ndraws = 1000,
+                           draws = NULL,
+                           cores = getOption("mc.cores", 1))
+
+no_npi_model7_loo <- loo(nonhh_model_stringency,
+                           ndraws = 1000,
+                           draws = NULL,
+                           cores = getOption("mc.cores", 1))
+```
 
 Appendix Table 2 
 
 ```{r}
 loo_compare(mobility_model1_loo, mobility_model2_loo, mobility_model3_loo)
 ```
+
+```{r}
+loo_compare(no_npi_model5_loo, no_npi_model6_loo, no_npi_model7_loo)
+```
+
 
 

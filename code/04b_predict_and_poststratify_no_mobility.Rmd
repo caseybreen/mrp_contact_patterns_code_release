@@ -100,7 +100,7 @@ make_predictions <- function(day, nonhh_model = nonhh_model, hh_model = hh_model
       TRUE ~ numcc_predict + numcc_predict_hh
     ))
   
-  ## summarize post-stratify estimates er
+  ## summarize post-stratify estimates 
   state_level_predictions <- predicted_draws_total %>%
     group_by(state, .draw, .category, agecat) %>% 
     summarise(mean = sum(count/sum(count) * numcc_predict_total), warnings = F) %>% 

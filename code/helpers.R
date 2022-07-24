@@ -198,6 +198,7 @@ eigenvalue_ratio <- function(df) {
            second_eigenvalue, 
            right_eigenvector,
            left_eigenvector,
+           R0_agespecific,
            .draw
     )
   
@@ -240,6 +241,7 @@ summarize_contact <- function(input_df){
     second_eigenvalue = calculate_second_eigenvalue(input_matrix = input_matrix),
     right_eigenvector = list(calculate_right_eigenvector(input_matrix = input_matrix)),
     left_eigenvector = list(calculate_left_eigenvector(input_matrix = input_matrix)),
+    R0_agespecific = compute_R0_relative(C = input_matrix)
   )
   
   return(summary_stats)
@@ -296,5 +298,25 @@ getPolymodMatrixNoSchool <- function(polymod_country = "United Kingdom",
   return(polymod_no_school_mat)
 }
 
+## Compute R0 Relative 
+
+
+compute_R0_relative = function(C){
+  #set fixed parameters:
+  
+  gamma <- 1/6 # recovery period (I -> R), ref: Davies
+  rel.symp <- c(0.26, 0.24, 0.3, 0.36, 0.44, 0.48, 0.69) # rho 
+  u = c(0.39, 0.62, 0.81, 0.83, 0.81, 0.74)/5 # susceptibility for each age class
+  
+  alpha <- 0.5
+  
+  # Davies NGM
+  Du <- diag(u, 7)
+  Dy <- diag(1/gamma, 7)
+  Dx <- diag((1-rel.symp)*alpha+rel.symp, 7)
+  NGM <- Du %*% C %*% Dy %*% Dx 
+  R0  <- abs(eigen(NGM)$values[1])
+  return(R0)
+}
 
 
