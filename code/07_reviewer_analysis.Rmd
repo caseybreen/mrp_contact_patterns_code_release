@@ -1,0 +1,258 @@
+---
+title: "Fit MRT Models with Mobility Data"
+author: Casey Breen
+---
+
+## Summary
+
+This notebook contains code to fit two models: one model to estimate non-household contacts and one to model to estimate household contacts.
+
+```{r}
+## library here package 
+library(here)
+## Load helper functions and library all packages used for analysis 
+source(here("code", "helpers.R"))
+```
+
+## read in data for model 
+
+```{r}
+## prepared for model  
+df_formodel <- read_rds(here('data', 'input', 'bics_data_waves_1-6.rds')) 
+
+## top code total number of reported contacts at 30 
+top_code <- function(x) {
+  x <- case_when(
+    x > 30 ~ 30,
+    TRUE ~ x
+  )
+}
+
+## topcode data.frame 
+df_formodel_topcode <- df_formodel %>%
+  mutate(across(c(starts_with("alter_age")), top_code))
+```
+
+## pick two states and drop some values 
+
+Let's pick Washington and Florida  
+
+```{r}
+set.seed(1)
+
+df_formodel_topcode_drop <- df_formodel_topcode %>% 
+  filter(state != "WA") %>% 
+  filter(state != "FL") 
+
+df_formodel_topcode_WA_FL <- df_formodel_topcode %>% 
+  filter(state %in% c("WA", "FL")) 
+
+df_formodel_topcode_WA_FL_20 <- df_formodel_topcode_WA_FL %>% 
+  group_by(state, wave) %>% 
+  sample_frac(0.20)
+
+df_formodel_topcode_WA_FL_40 <- df_formodel_topcode_WA_FL %>% 
+  group_by(state, wave) %>% 
+  sample_frac(0.40)
+
+df_formodel_topcode_WA_FL_60 <- df_formodel_topcode_WA_FL %>% 
+  group_by(state, wave) %>% 
+  sample_frac(0.60)
+
+df_formodel_topcode_WA_FL_80 <- df_formodel_topcode_WA_FL %>% 
+  group_by(state, wave) %>% 
+  sample_frac(0.80)
+
+df_formodel_topcode_20 <- df_formodel_topcode_drop %>% bind_rows(df_formodel_topcode_WA_FL_20)
+df_formodel_topcode_40 <- df_formodel_topcode_drop %>% bind_rows(df_formodel_topcode_WA_FL_40)
+df_formodel_topcode_60 <- df_formodel_topcode_drop %>% bind_rows(df_formodel_topcode_WA_FL_60)
+df_formodel_topcode_80 <- df_formodel_topcode_drop %>% bind_rows(df_formodel_topcode_WA_FL_80)
+```
+
+
+```{r}
+## mobility + monthly national cubic + state-level hierarchical cubic term 
+## Total execution time: 5346.0 seconds.
+nonhh_model_20 <- brm(
+  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    weekday + 
+    agecat:gender + 
+    rolling_pca_3wks + ## mobility data 
+    poly(day_std, 3) + ## national polynomial trend 
+    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode_20,
+  chains = 4,
+  cores = 4,
+  iter = 4000)
+
+write_rds(nonhh_model_20, file = here('data', 'models', 'nonhh_model_20.rds'))
+
+
+
+## run model (estimated run time: 978 seconds)
+hh_model_20 <- brm(
+  formula = mvbind(alter_age_0_18_hh, alter_age_18_25_hh, alter_age_25_35_hh, alter_age_35_45_hh, alter_age_45_55_hh, alter_age_55_65_hh, alter_age_65_100_hh) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    agecat:gender + 
+    (1 | state),
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode_20,
+  chains = 4,
+  cores = 16,
+  iter = 4000)
+
+## write out model 
+write_rds(hh_model_20, file = here('data', 'models', 'hh_model_20.rds'))
+```
+
+
+```{r}
+## mobility + monthly national cubic + state-level hierarchical cubic term 
+## Total execution time: 5346.0 seconds.
+nonhh_model_40 <- brm(
+  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    weekday + 
+    agecat:gender + 
+    rolling_pca_3wks + ## mobility data 
+    poly(day_std, 3) + ## national polynomial trend 
+    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode_40,
+  chains = 4,
+  cores = 4,
+  iter = 4000)
+
+write_rds(nonhh_model_40, file = here('data', 'models', 'nonhh_model_40.rds'))
+
+
+
+## run model (estimated run time: 978 seconds)
+hh_model_40 <- brm(
+  formula = mvbind(alter_age_0_18_hh, alter_age_18_25_hh, alter_age_25_35_hh, alter_age_35_45_hh, alter_age_45_55_hh, alter_age_55_65_hh, alter_age_65_100_hh) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    agecat:gender + 
+    (1 | state),
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode_40,
+  chains = 4,
+  cores = 16,
+  iter = 4000)
+
+## write out model 
+write_rds(hh_model_40, file = here('data', 'models', 'hh_model_40.rds'))
+```
+
+
+```{r}
+## mobility + monthly national cubic + state-level hierarchical cubic term 
+## Total execution time: 5346.0 seconds.
+nonhh_model_60 <- brm(
+  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    weekday + 
+    agecat:gender + 
+    rolling_pca_3wks + ## mobility data 
+    poly(day_std, 3) + ## national polynomial trend 
+    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode_60,
+  chains = 4,
+  cores = 4,
+  iter = 4000)
+
+write_rds(nonhh_model_60, file = here('data', 'models', 'nonhh_model_60.rds'))
+
+
+
+## run model (estimated run time: 978 seconds)
+hh_model_60 <- brm(
+  formula = mvbind(alter_age_0_18_hh, alter_age_18_25_hh, alter_age_25_35_hh, alter_age_35_45_hh, alter_age_45_55_hh, alter_age_55_65_hh, alter_age_65_100_hh) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    agecat:gender + 
+    (1 | state),
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode_60,
+  chains = 4,
+  cores = 16,
+  iter = 4000)
+
+## write out model 
+write_rds(hh_model_60, file = here('data', 'models', 'hh_model_60.rds'))
+```
+
+
+
+
+```{r}
+## mobility + monthly national cubic + state-level hierarchical cubic term 
+## Total execution time: 5346.0 seconds.
+nonhh_model_80 <- brm(
+  formula = mvbind(alter_age_0_18, alter_age_18_25, alter_age_25_35, alter_age_35_45, alter_age_45_55, alter_age_55_65, alter_age_65_100) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    weekday + 
+    agecat:gender + 
+    rolling_pca_3wks + ## mobility data 
+    poly(day_std, 3) + ## national polynomial trend 
+    (poly(day_std, 3) | state), ## state level pooled polynomial trend 
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode_80,
+  chains = 4,
+  cores = 4,
+  iter = 4000)
+
+write_rds(nonhh_model_80, file = here('data', 'models', 'nonhh_model_80.rds'))
+
+
+## run model (estimated run time: 978 seconds)
+hh_model_80 <- brm(
+  formula = mvbind(alter_age_0_18_hh, alter_age_18_25_hh, alter_age_25_35_hh, alter_age_35_45_hh, alter_age_45_55_hh, alter_age_55_65_hh, alter_age_65_100_hh) ~ 
+    agecat +
+    gender +
+    hhsize + 
+    race + 
+    agecat:gender + 
+    (1 | state),
+  family = 'negbinomial',
+  inits = 0,
+  data = df_formodel_topcode_0,
+  chains = 4,
+  cores = 16,
+  iter = 4000)
+
+## write out model 
+write_rds(hh_model_80, file = here('data', 'models', 'hh_model_80.rds'))
+```
+
+
+

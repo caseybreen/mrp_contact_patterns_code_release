@@ -112,8 +112,6 @@ write_rds(nonhh_model_no_mobility, file = here('data', 'models', 'nonhh_model_no
 ```
 
 
-
-
 ```{r}
 ## filter to respondents in household with more than 1 person 
 df_formodel_topcode_household <- df_formodel_topcode %>%
