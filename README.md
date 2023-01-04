@@ -1,8 +1,6 @@
 ## Estimating Subnational Contact Patterns using Multilevel Regression with Poststratification
 
-This repository contains code and materials to replicate "Estimating Subnational Contact Patterns using Multilevel Regression with Poststratification."
-
-A pre-print of the paper is available on SocArXiv: [https://osf.io/preprints/socarxiv/87e32/](https://osf.io/preprints/socarxiv/87e32/) 
+This repository contains code and materials to replicate ["Estimating Subnational Contact Patterns using Multilevel Regression with Poststratification."](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1010742)
 
 ### Replication Package
 
