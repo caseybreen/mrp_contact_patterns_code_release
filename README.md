@@ -1,4 +1,4 @@
-## Estimating Subnational Contact Patterns using Multilevel Regression with Poststratification
+## Novel estimates reveal subnational heterogeneities in disease-relevant contact patterns in the United States
 
 This repository contains code and materials to replicate ["Novel estimates reveal subnational heterogeneities in disease-relevant contact patterns in the United States."](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1010742)
 
