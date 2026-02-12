@@ -27,11 +27,12 @@ After downloading the required data and moving into the top level of the replica
 Alternatively, researchers can run the following files individually in order: 
 
 - `01_prep_google_pca.Rmd` - this file prepares the mobility data from Google Mobility Reports
-- `02_prep_acs_targets.Rmd` - this file calculates post-stratification targets from the 5-year American Community Survey 
-- `03_run_models.Rmd` - this file runs the two Bayesian hierarchical models 
-- `04_predict_and_poststratify.Rmd` - this file performs prediction from the posterior predictive distribution and then poststratifies to produce daily estimates of contact patterns 
-- `05_create_figures.Rmd` - this script constructs all figures and tables for paper 
-- `06_model_selection_loo.Rmd` - this script runs a few models with different specifications and performs model selection  
+- `02_prep_npi.Rmd` - preprocesses non-pharmaceutical intervention (NPI) data from Oxford Covid-19 Government Response Tracker (OxCGRT)
+- `03_prep_acs_targets.Rmd` - this file calculates post-stratification targets from the 5-year American Community Survey 
+- `04_run_models.Rmd` - this file runs the two Bayesian hierarchical models 
+- `05_predict_and_poststratify.Rmd` - this file performs prediction from the posterior predictive distribution and then poststratifies to produce daily estimates of contact patterns 
+- `06_create_figures.Rmd` - this script constructs all figures and tables for paper 
+- `07_model_selection_loo.Rmd` - this script runs a few models with different specifications and performs model selection  
 
 ### Authors
 
