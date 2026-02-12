@@ -1,12 +1,13 @@
 ---
 title: "Run all Scripts"
+author: Casey Breen
 ---
 
 ## Summary 
 
 This script runs all code to replicate figures and tables for the paper "Estimating Subnational Contact Patterns using Multilevel Regression with Poststratification." 
 
-The scripts are numbered in the order they should be run.
+The scripts are numbered in the order they should be run. Additional supplemental analyses (e.g., )
 
 ```{r}
 ## library packages 
@@ -21,7 +22,7 @@ rmd_files <- rmd_files[!rmd_files %in% "00_run_all.Rmd"]
 ## set seed for reproducibility 
 set.seed(1)
 
-for (cur_file in rmd_files[1:4]) {
+for (cur_file in rmd_files) {
 	cat("================================\n")
 	tictoc::tic(glue::glue("Finished with {cur_file}, time:"))
 	cat("Running ", cur_file, "\n")

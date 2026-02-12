@@ -1,11 +1,11 @@
 ---
-title: "Create Figures from our estimates"
+title: "Create Figures from MrP estimates"
 author: Casey Breen
 ---
 
 ## Summary
 
-This notebook contains code to produce all figures and tables for "Estimating Subnational Contact Patterns using Multilevel Regression with Poststratification." 
+This notebook contains code to produce all figures and tables for "Estimating Subnational Contact Patterns using Multilevel Regression with Post-stratification." 
 
 ```{r}
 ## library package
@@ -775,19 +775,6 @@ monthly_estimates_eigenvalue %>%
   ungroup() %>% 
   group_by(state) %>% 
   summarize(mean(diff))
-
-```
-
-```{r}
-monthly_estimates_eigenvalue %>% 
-  filter(state %in% c("WA", "SD")) %>% 
-  group_by(month, state) %>% 
-  summarize(eigenvalue_ratio = sd(eigenvalue_ratio)) %>% 
-  pivot_wider(names_from = state, values_from = eigenvalue_ratio) %>% 
-  summarize(diff = SD/WA) %>% 
-  ggplot(aes(x = month, y = diff)) + 
-  geom_line() +
-  ylim(0.5, 2)
 ```
 
 

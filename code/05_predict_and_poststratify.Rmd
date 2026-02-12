@@ -1,12 +1,13 @@
 ---
 title: "Predict and Post-Stratify"
+author: Casey Breen
 ---
 
 Summary: This notebook contains code to produce post-stratified estimates of social contact and calculate summary statistics for social contact.  
 
 Specifically, this code will: 
 
-1. Predict contact patterns using predictived posterior draws from Bayesian models  
+1. Predict contact patterns using predicted posterior draws from Bayesian models  
 2. Poststratify the predictions
 3. Adjust matrices for symmetry
 4. Estimate contact for youngest age group (not surveyed)
@@ -26,7 +27,7 @@ options(dplyr.summarise.inform = FALSE)
 num_draws <- 100
 
 ## set number of days to make predictions for (1 = April 11 2020)
-days <- c(1:1)
+days <- c(1:411)
 ```
 
 ```{r}
@@ -124,7 +125,7 @@ make_predictions <- function(day, nonhh_model = nonhh_model, hh_model = hh_model
   newList <- list(eigenvalue_df, contact_df)
   
   ## write out and save predictions 
-  # write_rds(x = newList, file = here('data', 'predictions', paste0('prediction_day', day, ".rds")))
+  write_rds(x = newList, file = here('data', 'predictions', paste0('prediction_day', day, ".rds")))
 
   ## print out day to keep track 
   cat(day)

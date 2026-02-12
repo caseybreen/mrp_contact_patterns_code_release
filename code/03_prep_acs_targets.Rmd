@@ -22,10 +22,10 @@ source(here("code", "helpers.R"))
 Read in 5-yr ACS with IPUMSR package
 
 ```{r}
-## read in ipums data
+## Read in ipums data
 acs18_5yr <- read_ipums_micro(ddi = here("data", "input", "acs_5yr2018", "usa_00032.xml"), verbose = F)
 
-## fips code
+## FIPS code
 fips <- readRDS(here("data", "input", "acs_5yr2018", "fips.rds"))
 ```
 
@@ -36,7 +36,6 @@ Recode the ACS variables to match BICS variables. Drop variables we won't use.
 ```{r}
 ## Recode and prep variables
 acs18_5yr_recode <- acs18_5yr %>%
-  ## filter(AGE >= 18) %>%
   janitor::clean_names() %>%
   mutate(
     educ = case_when(
