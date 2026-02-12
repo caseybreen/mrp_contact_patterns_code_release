@@ -3,3 +3,7 @@
 .RData
 .Ruserdata
 /data
+
+.DS_Store
+data.zip
+*.zip
