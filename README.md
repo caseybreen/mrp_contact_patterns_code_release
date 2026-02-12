@@ -8,7 +8,7 @@ The this repository includes code to replicate all figures and tables in the pap
 
 1. Clone this repository
 2. Download the `data.zip` file from the [accompanying OSF project](https://osf.io/aecwn/), unzip the data file, and move it to the top level of the repository. 
-3. Run the `00_run_all.Rmd` script, which will run all code (or run scripts `01` to `05` individually)
+3. Run the `00_run_all.Rmd` script, which will run all code (or run scripts `01` to `07` individually)
 
 
 #### Data 
